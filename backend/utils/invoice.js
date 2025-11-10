@@ -137,7 +137,7 @@ class InvoiceGenerator {
 
         // ===== CONSIGNEE AND BUYER BOXES =====
         const boxY = 180;
-        const boxHeight = 105;
+        const boxHeight = 95;
         const boxWidth = 257;
         
         // Helper function to wrap text manually
@@ -171,18 +171,20 @@ class InvoiceGenerator {
         doc.fontSize(8).font('Helvetica');
         doc.text(customer.name || 'N/A', margin + 5, boxY + 20, { lineBreak: false });
         
-        // Address with manual wrapping - FULL DISPLAY
+        // Address with manual wrapping - ZERO GAP
         doc.fontSize(8);
         const addressLines = wrapText(customer.address || 'Address not provided', boxWidth - 15);
-        let addressYPos = boxY + 33;
+        let currentY = boxY + 33;
         addressLines.forEach((line, index) => {
-          doc.text(line, margin + 5, addressYPos + (index * 11), { lineBreak: false });
+          doc.text(line, margin + 5, currentY, { lineBreak: false });
+          currentY += 10; // 10px per line
         });
         
-        // FIXED positioning with more space
+        // DYNAMIC positioning - NO empty space
         doc.fontSize(8);
-        doc.text(`Phone: ${customer.phone || 'N/A'}`, margin + 5, boxY + 72, { lineBreak: false });
-        doc.text(`GSTIN/UIN: ${customer.gstNumber || 'N/A'}`, margin + 5, boxY + 87, { lineBreak: false });
+        const phoneY = currentY + 6; // Just 6px gap after address
+        doc.text(`Phone: ${customer.phone || 'N/A'}`, margin + 5, phoneY, { lineBreak: false });
+        doc.text(`GSTIN/UIN: ${customer.gstNumber || 'N/A'}`, margin + 5, phoneY + 13, { lineBreak: false });
         
         // Buyer Box (Right)
         doc.rect(margin + boxWidth, boxY, boxWidth, boxHeight).stroke();
@@ -190,21 +192,23 @@ class InvoiceGenerator {
         doc.fontSize(8).font('Helvetica');
         doc.text(customer.name || 'N/A', margin + boxWidth + 5, boxY + 20, { lineBreak: false });
         
-        // Address with manual wrapping - FULL DISPLAY
+        // Address with manual wrapping - ZERO GAP
         doc.fontSize(8);
         const addressLines2 = wrapText(customer.address || 'Address not provided', boxWidth - 15);
-        let addressYPos2 = boxY + 33;
+        let currentY2 = boxY + 33;
         addressLines2.forEach((line, index) => {
-          doc.text(line, margin + boxWidth + 5, addressYPos2 + (index * 11), { lineBreak: false });
+          doc.text(line, margin + boxWidth + 5, currentY2, { lineBreak: false });
+          currentY2 += 10; // 10px per line
         });
         
-        // FIXED positioning with more space
+        // DYNAMIC positioning - NO empty space
         doc.fontSize(8);
-        doc.text(`Phone: ${customer.phone || 'N/A'}`, margin + boxWidth + 5, boxY + 72, { lineBreak: false });
-        doc.text(`GSTIN/UIN: ${customer.gstNumber || 'N/A'}`, margin + boxWidth + 5, boxY + 87, { lineBreak: false });
+        const phoneY2 = currentY2 + 6; // Just 6px gap after address
+        doc.text(`Phone: ${customer.phone || 'N/A'}`, margin + boxWidth + 5, phoneY2, { lineBreak: false });
+        doc.text(`GSTIN/UIN: ${customer.gstNumber || 'N/A'}`, margin + boxWidth + 5, phoneY2 + 13, { lineBreak: false });
 
         // ===== ITEMS TABLE =====
-        const tableTop = 300;
+        const tableTop = 290;
         
         // Add logo before table (top-left of table area) if exists
         const tableLogo = path.join(__dirname, '../assets/logo.png');
