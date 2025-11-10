@@ -26,36 +26,27 @@ AppDataSource.initialize()
   });
 
 // Middleware
-// Configure CORS to allow frontend origin
-const corsOptions = {
-  origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-    
-    const allowedOrigins = [
-      'http://localhost:3000',
-      'https://web-production-94748.up.railway.app',
-      'https://pos-system-final-nov-2025-production-abc123.up.railway.app'
-    ];
-    
-    // Check if origin matches allowed origins or is a Railway domain
-    if (allowedOrigins.includes(origin) || origin.match(/^https:\/\/.*\.up\.railway\.app$/)) {
-      callback(null, true);
-    } else {
-      console.log('❌ CORS blocked origin:', origin);
-      callback(null, true); // Allow anyway for debugging
-    }
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  exposedHeaders: ['Content-Type', 'Authorization'],
-  maxAge: 86400, // 24 hours
-};
-
-// Enable pre-flight for all routes
-app.options('*', cors(corsOptions));
-app.use(cors(corsOptions));
+// Configure CORS - Allow all Railway domains for now
+app.use((req, res, next) => {
+  const origin = req.get('origin');
+  console.log('📨 Request from origin:', origin);
+  
+  // Allow all Railway domains and localhost
+  if (!origin || origin.includes('railway.app') || origin.includes('localhost')) {
+    res.header('Access-Control-Allow-Origin', origin || '*');
+    res.header('Access-Control-Allow-Credentials', 'true');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+    res.header('Access-Control-Expose-Headers', 'Content-Type, Authorization');
+  }
+  
+  // Handle preflight
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  
+  next();
+});
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
