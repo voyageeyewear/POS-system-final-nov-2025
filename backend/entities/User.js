@@ -56,6 +56,7 @@ module.exports = new EntitySchema({
       target: 'Store',
       joinColumn: { name: 'assignedStoreId' },
       nullable: true,
+      onDelete: 'SET NULL', // Set to NULL when store is deleted
     },
   },
 });

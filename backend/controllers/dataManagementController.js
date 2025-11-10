@@ -185,6 +185,21 @@ exports.refreshData = async (req, res) => {
     // STEP 1: Sync Stores
     console.log('🔄 Step 1/3: Syncing stores from Shopify...');
     
+    // First, unassign all users from stores to avoid foreign key constraint errors
+    const userRepo = getUserRepository();
+    const allUsers = await userRepo.find();
+    let unassignedCount = 0;
+    for (const user of allUsers) {
+      if (user.assignedStoreId) {
+        user.assignedStoreId = null;
+        await userRepo.save(user);
+        unassignedCount++;
+      }
+    }
+    if (unassignedCount > 0) {
+      console.log(`✅ Unassigned ${unassignedCount} users from stores`);
+    }
+    
     // Delete ALL existing stores
     const allStores = await storeRepo.find();
     if (allStores.length > 0) {
