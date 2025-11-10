@@ -26,7 +26,18 @@ AppDataSource.initialize()
   });
 
 // Middleware
-app.use(cors());
+// Configure CORS to allow frontend origin
+const corsOptions = {
+  origin: [
+    'http://localhost:3000',
+    'https://web-production-94748.up.railway.app',
+    /^https:\/\/.*\.up\.railway\.app$/, // Allow all Railway apps
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+};
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
