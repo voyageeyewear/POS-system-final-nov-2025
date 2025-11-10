@@ -73,7 +73,22 @@ app.use('/api/data-management', dataManagementRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'OK', message: 'POS Backend is running' });
+  res.json({ status: 'OK', message: 'POS Backend is running', cors: 'enabled' });
+});
+
+// CORS test endpoint
+app.get('/api/cors-test', (req, res) => {
+  res.json({ 
+    message: 'CORS is working!',
+    origin: req.headers.origin,
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Test OPTIONS for auth login
+app.options('/api/auth/login', (req, res) => {
+  console.log('🔥 EXPLICIT OPTIONS handler for /api/auth/login');
+  res.status(200).end();
 });
 
 // 404 handler
