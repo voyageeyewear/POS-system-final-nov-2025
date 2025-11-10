@@ -168,13 +168,22 @@ exports.cleanupData = async (req, res) => {
   }
 };
 
-// Refresh data from Shopify
+// Refresh data from Shopify - Auto-sync stores, products, and inventory
 exports.refreshData = async (req, res) => {
   try {
     const shopifyService = require('../utils/shopify');
     const storeRepo = getStoreRepository();
+    const productRepo = getProductRepository();
+    const inventoryRepo = getInventoryRepository();
     
-    console.log('🔄 Force syncing stores from Shopify...');
+    const syncResults = {
+      stores: { synced: 0, names: [] },
+      products: { created: 0, updated: 0 },
+      inventory: { updated: 0 }
+    };
+    
+    // STEP 1: Sync Stores
+    console.log('🔄 Step 1/3: Syncing stores from Shopify...');
     
     // Delete ALL existing stores
     const allStores = await storeRepo.find();
@@ -185,6 +194,7 @@ exports.refreshData = async (req, res) => {
     
     // Fetch and create stores from Shopify
     const shopifyLocations = await shopifyService.getLocations();
+    const createdStores = [];
     
     for (const location of shopifyLocations) {
       const address = {
@@ -206,18 +216,143 @@ exports.refreshData = async (req, res) => {
       };
 
       const store = storeRepo.create(storeData);
-      await storeRepo.save(store);
+      const savedStore = await storeRepo.save(store);
+      createdStores.push(savedStore);
+      syncResults.stores.names.push(location.name);
     }
     
-    console.log(`✅ Step 1 Complete: Force synced ${shopifyLocations.length} stores from Shopify`);
+    syncResults.stores.synced = shopifyLocations.length;
+    console.log(`✅ Step 1/3 Complete: Synced ${syncResults.stores.synced} stores`);
+    
+    // STEP 2: Sync Products
+    console.log('🔄 Step 2/3: Syncing products from Shopify...');
+    const shopifyProducts = await shopifyService.getProducts();
+    
+    for (const shopifyProduct of shopifyProducts) {
+      for (const variant of shopifyProduct.variants) {
+        try {
+          const productData = {
+            name: variant.title === 'Default Title' 
+              ? shopifyProduct.title 
+              : `${shopifyProduct.title} - ${variant.title}`,
+            sku: variant.sku || `SKU-${variant.id}`,
+            category: shopifyProduct.product_type || 'Uncategorized',
+            price: parseFloat(variant.price) || 0,
+            description: shopifyProduct.body_html || '',
+            image: shopifyProduct.image?.src || '',
+            shopifyProductId: shopifyProduct.id.toString(),
+            shopifyVariantId: variant.id.toString(),
+            taxRate: shopifyProduct.product_type?.toLowerCase().includes('sunglass') ? 18 : 5,
+            isActive: true
+          };
 
-    // Step 2: Tell user to sync products from admin panel
-    res.json({
-      message: 'Stores refreshed successfully from Shopify. Please go to Admin → Products → "Sync Inventory from Shopify" to populate product inventory.',
-      refreshed: {
-        stores: shopifyLocations.length,
-        locations: shopifyLocations.map(l => l.name)
+          const existingProduct = await productRepo.findOne({
+            where: { shopifyVariantId: variant.id.toString() }
+          });
+
+          if (existingProduct) {
+            Object.assign(existingProduct, productData);
+            await productRepo.save(existingProduct);
+            syncResults.products.updated++;
+          } else {
+            const product = productRepo.create(productData);
+            await productRepo.save(product);
+            syncResults.products.created++;
+          }
+        } catch (error) {
+          console.error(`Error syncing product variant ${variant.id}:`, error.message);
+        }
       }
+    }
+    
+    console.log(`✅ Step 2/3 Complete: ${syncResults.products.created} products created, ${syncResults.products.updated} updated`);
+    
+    // STEP 3: Sync Inventory
+    console.log('🔄 Step 3/3: Syncing inventory from Shopify...');
+    const products = await productRepo
+      .createQueryBuilder('product')
+      .where('product.shopifyVariantId IS NOT NULL')
+      .getMany();
+    
+    // Get all inventory item IDs
+    const inventoryItemIds = [];
+    const productMap = new Map();
+
+    for (const product of products) {
+      if (product.shopifyVariantId && product.shopifyProductId) {
+        try {
+          const shopifyProduct = await shopifyService.getProduct(product.shopifyProductId);
+          const variant = shopifyProduct.variants.find(v => v.id.toString() === product.shopifyVariantId);
+          
+          if (variant && variant.inventory_item_id) {
+            inventoryItemIds.push(variant.inventory_item_id);
+            productMap.set(variant.inventory_item_id, product);
+          }
+        } catch (error) {
+          console.error(`Error fetching inventory for product ${product.name}:`, error.message);
+        }
+      }
+    }
+
+    // Get inventory levels from Shopify
+    if (inventoryItemIds.length > 0) {
+      const inventoryLevels = await shopifyService.getInventoryLevels(inventoryItemIds);
+
+      // Create a map of location -> item -> quantity
+      const inventoryMap = new Map();
+      
+      for (const level of inventoryLevels) {
+        const locationId = level.location_id.toString();
+        if (!inventoryMap.has(locationId)) {
+          inventoryMap.set(locationId, new Map());
+        }
+        inventoryMap.get(locationId).set(level.inventory_item_id, level.available || 0);
+      }
+
+      // Update inventory for each store
+      for (const store of createdStores) {
+        const locationInventory = inventoryMap.get(store.shopifyLocationId);
+        
+        if (locationInventory) {
+          for (const [inventoryItemId, quantity] of locationInventory.entries()) {
+            const product = productMap.get(inventoryItemId);
+            
+            if (product) {
+              try {
+                let inventory = await inventoryRepo.findOne({
+                  where: {
+                    productId: product.id,
+                    storeId: store.id
+                  }
+                });
+
+                if (inventory) {
+                  inventory.quantity = quantity;
+                } else {
+                  inventory = inventoryRepo.create({
+                    productId: product.id,
+                    storeId: store.id,
+                    quantity
+                  });
+                }
+
+                await inventoryRepo.save(inventory);
+                syncResults.inventory.updated++;
+              } catch (error) {
+                console.error(`Error updating inventory for ${product.name} at ${store.name}:`, error.message);
+              }
+            }
+          }
+        }
+      }
+    }
+    
+    console.log(`✅ Step 3/3 Complete: ${syncResults.inventory.updated} inventory records updated`);
+    console.log(`🎉 Full sync completed successfully!`);
+
+    res.json({
+      message: 'Full sync completed! Stores, products, and inventory refreshed from Shopify.',
+      results: syncResults
     });
   } catch (error) {
     console.error('Refresh error:', error);
