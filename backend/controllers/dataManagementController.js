@@ -209,10 +209,11 @@ exports.refreshData = async (req, res) => {
       await storeRepo.save(store);
     }
     
-    console.log(`✅ Force synced ${shopifyLocations.length} stores from Shopify`);
+    console.log(`✅ Step 1 Complete: Force synced ${shopifyLocations.length} stores from Shopify`);
 
+    // Step 2: Tell user to sync products from admin panel
     res.json({
-      message: 'Stores refreshed successfully from Shopify',
+      message: 'Stores refreshed successfully from Shopify. Please go to Admin → Products → "Sync Inventory from Shopify" to populate product inventory.',
       refreshed: {
         stores: shopifyLocations.length,
         locations: shopifyLocations.map(l => l.name)
