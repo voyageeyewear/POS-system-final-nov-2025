@@ -8,6 +8,7 @@ router.post('/login', authController.login);
 
 // Protected routes
 router.get('/profile', authenticate, authController.getProfile);
+router.get('/sync-status', authenticate, authController.getSyncStatus);
 
 // Admin only routes
 router.post('/register', authenticate, isAdmin, authController.register);

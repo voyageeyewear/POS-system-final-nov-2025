@@ -48,6 +48,55 @@ exports.register = async (req, res) => {
   }
 };
 
+// Auto-sync tracker
+let lastSyncTime = null;
+let isSyncing = false;
+
+// Background sync function
+const triggerBackgroundSync = async () => {
+  if (isSyncing) {
+    console.log('⏭️ Sync already in progress, skipping...');
+    return;
+  }
+
+  const now = Date.now();
+  const ONE_HOUR = 60 * 60 * 1000;
+  
+  // Only sync if last sync was more than 1 hour ago
+  if (lastSyncTime && (now - lastSyncTime) < ONE_HOUR) {
+    console.log(`⏭️ Skipping sync - last sync was ${Math.round((now - lastSyncTime) / 1000 / 60)} minutes ago`);
+    return;
+  }
+
+  isSyncing = true;
+  console.log('🔄 Starting background auto-sync...');
+
+  try {
+    const dataManagementController = require('./dataManagementController');
+    
+    // Create a mock request/response for the sync
+    const mockReq = {};
+    const mockRes = {
+      json: (data) => {
+        console.log('✅ Background sync completed:', data);
+        lastSyncTime = Date.now();
+        isSyncing = false;
+      },
+      status: (code) => ({
+        json: (data) => {
+          console.error('❌ Background sync failed:', data);
+          isSyncing = false;
+        }
+      })
+    };
+
+    await dataManagementController.refreshData(mockReq, mockRes);
+  } catch (error) {
+    console.error('❌ Background sync error:', error);
+    isSyncing = false;
+  }
+};
+
 // Login
 exports.login = async (req, res) => {
   try {
@@ -82,10 +131,20 @@ exports.login = async (req, res) => {
     // Return user without password
     const userResponse = UserMethods.toJSON(user);
 
+    // Trigger background sync (non-blocking)
+    setImmediate(() => {
+      triggerBackgroundSync().catch(err => {
+        console.error('Background sync trigger error:', err);
+      });
+    });
+
     res.json({
       message: 'Login successful',
       token,
-      user: userResponse
+      user: userResponse,
+      syncStatus: lastSyncTime 
+        ? `Last synced ${Math.round((Date.now() - lastSyncTime) / 1000 / 60)} minutes ago`
+        : 'Syncing data in background...'
     });
   } catch (error) {
     res.status(400).json({ error: error.message });
@@ -96,6 +155,27 @@ exports.login = async (req, res) => {
 exports.getProfile = async (req, res) => {
   try {
     res.json({ user: req.user });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+// Get sync status
+exports.getSyncStatus = async (req, res) => {
+  try {
+    const status = {
+      isSyncing,
+      lastSyncTime,
+      lastSyncAgo: lastSyncTime 
+        ? `${Math.round((Date.now() - lastSyncTime) / 1000 / 60)} minutes ago`
+        : 'Never',
+      message: isSyncing 
+        ? 'Syncing data from Shopify...'
+        : lastSyncTime 
+          ? 'Data is up to date'
+          : 'Waiting for first sync'
+    };
+    res.json(status);
   } catch (error) {
     res.status(400).json({ error: error.message });
   }

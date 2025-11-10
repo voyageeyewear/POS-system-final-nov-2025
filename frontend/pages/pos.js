@@ -5,8 +5,8 @@ import Layout from '../components/Layout';
 import ProductCard from '../components/ProductCard';
 import CartItem from '../components/CartItem';
 import CustomerModal from '../components/CustomerModal';
-import { storeAPI, saleAPI } from '../utils/api';
-import { Search, ShoppingCart, CreditCard, Receipt } from 'lucide-react';
+import { storeAPI, saleAPI, authAPI } from '../utils/api';
+import { Search, ShoppingCart, CreditCard, Receipt, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function POS() {
@@ -23,6 +23,7 @@ export default function POS() {
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [processing, setProcessing] = useState(false);
+  const [syncStatus, setSyncStatus] = useState(null);
   const ITEMS_PER_PAGE = 20;
 
   // VERSION CHECK - v3.0 - FINAL FIX
@@ -38,8 +39,32 @@ export default function POS() {
       router.push('/admin');
     } else if (user?.assignedStore) {
       loadProducts();
+      checkSyncStatus(); // Check initial sync status
     }
   }, [user, loading, router]);
+
+  // Check sync status periodically
+  useEffect(() => {
+    if (!user) return;
+    
+    const interval = setInterval(checkSyncStatus, 5000); // Check every 5 seconds
+    return () => clearInterval(interval);
+  }, [user]);
+
+  const checkSyncStatus = async () => {
+    try {
+      const response = await authAPI.getSyncStatus();
+      setSyncStatus(response.data);
+      
+      // If sync just completed, reload products
+      if (!response.data.isSyncing && syncStatus?.isSyncing) {
+        console.log('✅ Sync completed, reloading products...');
+        loadProducts();
+      }
+    } catch (error) {
+      console.error('Error checking sync status:', error);
+    }
+  };
 
   const loadProducts = async () => {
     try {
@@ -273,6 +298,23 @@ export default function POS() {
 
   return (
     <Layout title="Point of Sale">
+      {/* Sync Status Banner */}
+      {syncStatus?.isSyncing && (
+        <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-4 rounded-r-lg">
+          <div className="flex items-center">
+            <RefreshCw className="w-5 h-5 text-blue-500 animate-spin mr-3" />
+            <div>
+              <p className="text-sm font-medium text-blue-800">
+                Syncing data from Shopify...
+              </p>
+              <p className="text-xs text-blue-600 mt-1">
+                Products will be updated automatically when sync completes
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col lg:grid lg:grid-cols-3 gap-6 pb-20">
         {/* Products Section */}
         <div className="w-full lg:col-span-2">
