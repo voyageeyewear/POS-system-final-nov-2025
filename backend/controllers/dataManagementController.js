@@ -134,10 +134,15 @@ exports.cleanupData = async (req, res) => {
     const inventoryRepo = getInventoryRepository();
 
     // Delete all data (except admin users)
-    await saleRepo.delete({}); // This will cascade to SaleItems
-    await customerRepo.delete({});
-    await inventoryRepo.delete({});
-    await productRepo.delete({});
+    const allSales = await saleRepo.find();
+    const allCustomers = await customerRepo.find();
+    const allInventory = await inventoryRepo.find();
+    const allProducts = await productRepo.find();
+    
+    if (allSales.length > 0) await saleRepo.remove(allSales);
+    if (allCustomers.length > 0) await customerRepo.remove(allCustomers);
+    if (allInventory.length > 0) await inventoryRepo.remove(allInventory);
+    if (allProducts.length > 0) await productRepo.remove(allProducts);
     
     // Delete non-admin users
     const nonAdminUsers = await userRepo.find({ where: { role: 'cashier' } });
@@ -172,8 +177,11 @@ exports.refreshData = async (req, res) => {
     console.log('🔄 Force syncing stores from Shopify...');
     
     // Delete ALL existing stores
-    await storeRepo.delete({});
-    console.log('✅ Deleted all existing stores');
+    const allStores = await storeRepo.find();
+    if (allStores.length > 0) {
+      await storeRepo.remove(allStores);
+      console.log(`✅ Deleted ${allStores.length} existing stores`);
+    }
     
     // Fetch and create stores from Shopify
     const shopifyLocations = await shopifyService.getLocations();
