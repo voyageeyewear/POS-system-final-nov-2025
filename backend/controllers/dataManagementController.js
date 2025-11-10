@@ -166,34 +166,48 @@ exports.cleanupData = async (req, res) => {
 // Refresh data from Shopify
 exports.refreshData = async (req, res) => {
   try {
-    const axios = require('axios');
-    const shopDomain = process.env.SHOPIFY_SHOP_DOMAIN;
-    const accessToken = process.env.SHOPIFY_ACCESS_TOKEN;
-    const apiVersion = process.env.SHOPIFY_API_VERSION || '2024-01';
-    const SHOPIFY_API_URL = `https://${shopDomain}/admin/api/${apiVersion}`;
+    const shopifyService = require('../utils/shopify');
+    const storeRepo = getStoreRepository();
+    
+    console.log('🔄 Force syncing stores from Shopify...');
+    
+    // Delete ALL existing stores
+    await storeRepo.delete({});
+    console.log('✅ Deleted all existing stores');
+    
+    // Fetch and create stores from Shopify
+    const shopifyLocations = await shopifyService.getLocations();
+    
+    for (const location of shopifyLocations) {
+      const address = {
+        street: location.address1 || '',
+        city: location.city || '',
+        state: location.province || '',
+        zipCode: location.zip || '',
+        country: location.country || ''
+      };
 
-    // Fetch latest products
-    const productsResponse = await axios.get(`${SHOPIFY_API_URL}/products.json`, {
-      headers: { 'X-Shopify-Access-Token': accessToken }
-    });
+      const storeData = {
+        name: location.name,
+        location: `${location.city || 'Store'}, ${location.country || ''}`,
+        address,
+        phone: location.phone || '',
+        email: `${location.name.toLowerCase().replace(/\s+/g, '-')}@store.com`,
+        shopifyLocationId: location.id.toString(),
+        isActive: location.active
+      };
 
-    // Fetch latest locations
-    const locationsResponse = await axios.get(`${SHOPIFY_API_URL}/locations.json`, {
-      headers: { 'X-Shopify-Access-Token': accessToken }
-    });
-
-    // Fetch inventory levels
-    const inventoryResponse = await axios.get(`${SHOPIFY_API_URL}/inventory_levels.json`, {
-      headers: { 'X-Shopify-Access-Token': accessToken },
-      params: { limit: 250 }
-    });
+      const store = storeRepo.create(storeData);
+      await storeRepo.save(store);
+    }
+    
+    console.log(`✅ Force synced ${shopifyLocations.length} stores from Shopify`);
 
     res.json({
-      message: 'Data refreshed successfully from Shopify',
+      message: 'Stores refreshed successfully from Shopify',
       refreshed: {
-        products: productsResponse.data.products.length,
-        locations: locationsResponse.data.locations.length,
-        inventoryLevels: inventoryResponse.data.inventory_levels.length
+        stores: shopifyLocations.length,
+        locations: shopifyLocations.map(l => l.name)
       }
     });
   } catch (error) {
