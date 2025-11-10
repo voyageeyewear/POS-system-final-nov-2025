@@ -137,47 +137,74 @@ class InvoiceGenerator {
 
         // ===== CONSIGNEE AND BUYER BOXES =====
         const boxY = 180;
-        const boxHeight = 90;
+        const boxHeight = 105;
         const boxWidth = 257;
+        
+        // Helper function to wrap text manually
+        const wrapText = (text, maxWidth) => {
+          const words = text.split(' ');
+          const lines = [];
+          let currentLine = '';
+          
+          words.forEach(word => {
+            const testLine = currentLine ? `${currentLine} ${word}` : word;
+            const testWidth = doc.widthOfString(testLine, { fontSize: 8 });
+            
+            if (testWidth > maxWidth && currentLine) {
+              lines.push(currentLine);
+              currentLine = word;
+            } else {
+              currentLine = testLine;
+            }
+          });
+          
+          if (currentLine) {
+            lines.push(currentLine);
+          }
+          
+          return lines.slice(0, 3); // Maximum 3 lines
+        };
         
         // Consignee Box (Left)
         doc.rect(margin, boxY, boxWidth, boxHeight).stroke();
         doc.fontSize(10).font('Helvetica-Bold').text('Consignee (Ship to)', margin + 5, boxY + 5, { lineBreak: false });
         doc.fontSize(8).font('Helvetica');
         doc.text(customer.name || 'N/A', margin + 5, boxY + 20, { lineBreak: false });
-        // Address with aggressive wrapping - NO BLANK SPACE
-        doc.fontSize(7);
-        doc.text(customer.address || 'Address not provided', margin + 5, boxY + 32, { 
-          width: boxWidth - 10,
-          lineGap: 0,
-          height: 30,
-          ellipsis: false
-        });
-        // FIXED positioning - NO dynamic spacing
+        
+        // Address with manual wrapping - FULL DISPLAY
         doc.fontSize(8);
-        doc.text(`Phone: ${customer.phone || 'N/A'}`, margin + 5, boxY + 62, { lineBreak: false });
-        doc.text(`GSTIN/UIN: ${customer.gstNumber || 'N/A'}`, margin + 5, boxY + 75, { lineBreak: false });
+        const addressLines = wrapText(customer.address || 'Address not provided', boxWidth - 15);
+        let addressYPos = boxY + 33;
+        addressLines.forEach((line, index) => {
+          doc.text(line, margin + 5, addressYPos + (index * 11), { lineBreak: false });
+        });
+        
+        // FIXED positioning with more space
+        doc.fontSize(8);
+        doc.text(`Phone: ${customer.phone || 'N/A'}`, margin + 5, boxY + 72, { lineBreak: false });
+        doc.text(`GSTIN/UIN: ${customer.gstNumber || 'N/A'}`, margin + 5, boxY + 87, { lineBreak: false });
         
         // Buyer Box (Right)
         doc.rect(margin + boxWidth, boxY, boxWidth, boxHeight).stroke();
         doc.fontSize(10).font('Helvetica-Bold').text('Buyer (Bill to)', margin + boxWidth + 5, boxY + 5, { lineBreak: false });
         doc.fontSize(8).font('Helvetica');
         doc.text(customer.name || 'N/A', margin + boxWidth + 5, boxY + 20, { lineBreak: false });
-        // Address with aggressive wrapping - NO BLANK SPACE
-        doc.fontSize(7);
-        doc.text(customer.address || 'Address not provided', margin + boxWidth + 5, boxY + 32, { 
-          width: boxWidth - 10,
-          lineGap: 0,
-          height: 30,
-          ellipsis: false
-        });
-        // FIXED positioning - NO dynamic spacing
+        
+        // Address with manual wrapping - FULL DISPLAY
         doc.fontSize(8);
-        doc.text(`Phone: ${customer.phone || 'N/A'}`, margin + boxWidth + 5, boxY + 62, { lineBreak: false });
-        doc.text(`GSTIN/UIN: ${customer.gstNumber || 'N/A'}`, margin + boxWidth + 5, boxY + 75, { lineBreak: false });
+        const addressLines2 = wrapText(customer.address || 'Address not provided', boxWidth - 15);
+        let addressYPos2 = boxY + 33;
+        addressLines2.forEach((line, index) => {
+          doc.text(line, margin + boxWidth + 5, addressYPos2 + (index * 11), { lineBreak: false });
+        });
+        
+        // FIXED positioning with more space
+        doc.fontSize(8);
+        doc.text(`Phone: ${customer.phone || 'N/A'}`, margin + boxWidth + 5, boxY + 72, { lineBreak: false });
+        doc.text(`GSTIN/UIN: ${customer.gstNumber || 'N/A'}`, margin + boxWidth + 5, boxY + 87, { lineBreak: false });
 
         // ===== ITEMS TABLE =====
-        const tableTop = 285;
+        const tableTop = 300;
         
         // Add logo before table (top-left of table area) if exists
         const tableLogo = path.join(__dirname, '../assets/logo.png');
