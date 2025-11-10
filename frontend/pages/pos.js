@@ -6,7 +6,7 @@ import ProductCard from '../components/ProductCard';
 import CartItem from '../components/CartItem';
 import CustomerModal from '../components/CustomerModal';
 import { storeAPI, saleAPI, authAPI } from '../utils/api';
-import { Search, ShoppingCart, CreditCard, Receipt, RefreshCw } from 'lucide-react';
+import { Search, ShoppingCart, CreditCard, Receipt, RefreshCw, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import frontendCache from '../utils/cache';
 
@@ -406,9 +406,25 @@ export default function POS() {
   // AGGRESSIVE: Show sync button if no products and not loading
   const showEmergencySync = !loadingProducts && products.length === 0;
 
+  // Handle closing/cancelling the loading overlay
+  const handleCancelLoading = () => {
+    setLoadingProducts(false);
+    setLoadingProgress(0);
+    toast.error('Loading cancelled. You may not see all products.', { duration: 3000 });
+  };
+
   // Loading Overlay Component
   const LoadingOverlay = () => (
     <div className="fixed inset-0 bg-white bg-opacity-95 z-50 flex items-center justify-center">
+      {/* Close Button */}
+      <button
+        onClick={handleCancelLoading}
+        className="absolute top-4 right-4 p-2 bg-red-500 hover:bg-red-600 text-white rounded-full transition shadow-lg hover:shadow-xl"
+        title="Cancel loading"
+      >
+        <X className="w-6 h-6" />
+      </button>
+
       <div className="max-w-md w-full px-6">
         <div className="text-center mb-6">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-500 rounded-full mb-4 animate-pulse">
@@ -453,6 +469,16 @@ export default function POS() {
           <p className="text-xs text-blue-600 text-center">
             💡 <strong>First time?</strong> This might take a moment. Next time will be instant!
           </p>
+        </div>
+
+        {/* Cancel Button (alternative to X button) */}
+        <div className="mt-4 text-center">
+          <button
+            onClick={handleCancelLoading}
+            className="text-sm text-gray-500 hover:text-red-600 underline transition"
+          >
+            Cancel loading
+          </button>
         </div>
       </div>
     </div>
