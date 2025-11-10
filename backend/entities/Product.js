@@ -49,6 +49,10 @@ module.exports = new EntitySchema({
       type: 'varchar',
       nullable: true,
     },
+    inventoryItemId: {
+      type: 'varchar',
+      nullable: true,
+    },
     isActive: {
       type: 'boolean',
       default: true,

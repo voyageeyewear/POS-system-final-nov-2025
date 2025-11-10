@@ -121,16 +121,35 @@ class ShopifyService {
     }
   }
 
-  // Get inventory levels
+  // Get inventory levels (with batching for large requests)
   async getInventoryLevels(inventoryItemIds) {
     try {
       const client = this.getClient();
-      const response = await client.get('/inventory_levels.json', {
-        params: {
-          inventory_item_ids: inventoryItemIds.join(',')
+      const BATCH_SIZE = 50; // Shopify recommends max 50 inventory items per request
+      let allLevels = [];
+      
+      // Split into batches if necessary
+      for (let i = 0; i < inventoryItemIds.length; i += BATCH_SIZE) {
+        const batch = inventoryItemIds.slice(i, i + BATCH_SIZE);
+        console.log(`📦 Fetching inventory batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(inventoryItemIds.length / BATCH_SIZE)} (${batch.length} items)...`);
+        
+        const response = await client.get('/inventory_levels.json', {
+          params: {
+            inventory_item_ids: batch.join(','),
+            limit: 250 // Max results per page
+          }
+        });
+        
+        allLevels = allLevels.concat(response.data.inventory_levels);
+        
+        // Small delay to avoid rate limiting
+        if (i + BATCH_SIZE < inventoryItemIds.length) {
+          await new Promise(resolve => setTimeout(resolve, 300));
         }
-      });
-      return response.data.inventory_levels;
+      }
+      
+      console.log(`✅ Fetched ${allLevels.length} total inventory level records`);
+      return allLevels;
     } catch (error) {
       console.error('Shopify API Error:', error.response?.data || error.message);
       throw new Error('Failed to fetch inventory levels from Shopify');

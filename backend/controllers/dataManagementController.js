@@ -290,6 +290,7 @@ exports.refreshData = async (req, res) => {
             image: shopifyProduct.image?.src || '',
             shopifyProductId: shopifyProduct.id.toString(),
             shopifyVariantId: variant.id.toString(),
+            inventoryItemId: variant.inventory_item_id ? variant.inventory_item_id.toString() : null,
             taxRate: shopifyProduct.product_type?.toLowerCase().includes('sunglass') ? 18 : 5,
             isActive: true
           };
@@ -319,49 +320,53 @@ exports.refreshData = async (req, res) => {
     console.log('🔄 Step 3/3: Syncing inventory from Shopify...');
     const products = await productRepo
       .createQueryBuilder('product')
-      .where('product.shopifyVariantId IS NOT NULL')
+      .where('product.inventoryItemId IS NOT NULL')
       .getMany();
     
-    // Get all inventory item IDs
+    console.log(`📦 Found ${products.length} products with inventory item IDs`);
+    
+    // Get all inventory item IDs - USE STORED VALUES (AGGRESSIVE FIX!)
     const inventoryItemIds = [];
     const productMap = new Map();
 
     for (const product of products) {
-      if (product.shopifyVariantId && product.shopifyProductId) {
-        try {
-          const shopifyProduct = await shopifyService.getProduct(product.shopifyProductId);
-          const variant = shopifyProduct.variants.find(v => v.id.toString() === product.shopifyVariantId);
-          
-          if (variant && variant.inventory_item_id) {
-            inventoryItemIds.push(variant.inventory_item_id);
-            productMap.set(variant.inventory_item_id, product);
-          }
-        } catch (error) {
-          console.error(`Error fetching inventory for product ${product.name}:`, error.message);
-        }
+      if (product.inventoryItemId) {
+        inventoryItemIds.push(product.inventoryItemId);
+        productMap.set(product.inventoryItemId, product);
       }
     }
+    
+    console.log(`📦 Collected ${inventoryItemIds.length} inventory item IDs for sync`);
 
     // Get inventory levels from Shopify
     if (inventoryItemIds.length > 0) {
+      console.log(`🔄 Fetching inventory levels for ${inventoryItemIds.length} items from Shopify...`);
       const inventoryLevels = await shopifyService.getInventoryLevels(inventoryItemIds);
+      console.log(`✅ Received ${inventoryLevels.length} inventory level records from Shopify`);
 
       // Create a map of location -> item -> quantity
       const inventoryMap = new Map();
       
       for (const level of inventoryLevels) {
         const locationId = level.location_id.toString();
+        const itemId = level.inventory_item_id.toString(); // Convert to string for consistency
+        
         if (!inventoryMap.has(locationId)) {
           inventoryMap.set(locationId, new Map());
         }
-        inventoryMap.get(locationId).set(level.inventory_item_id, level.available || 0);
+        inventoryMap.get(locationId).set(itemId, level.available || 0);
       }
+      
+      console.log(`📊 Organized inventory for ${inventoryMap.size} locations`);
 
       // Update inventory for each store
       for (const store of createdStores) {
         const locationInventory = inventoryMap.get(store.shopifyLocationId);
         
         if (locationInventory) {
+          console.log(`📦 Updating ${locationInventory.size} inventory items for ${store.name}...`);
+          let storeUpdated = 0;
+          
           for (const [inventoryItemId, quantity] of locationInventory.entries()) {
             const product = productMap.get(inventoryItemId);
             
@@ -386,13 +391,22 @@ exports.refreshData = async (req, res) => {
 
                 await inventoryRepo.save(inventory);
                 syncResults.inventory.updated++;
+                storeUpdated++;
               } catch (error) {
-                console.error(`Error updating inventory for ${product.name} at ${store.name}:`, error.message);
+                console.error(`❌ Error updating inventory for ${product.name} at ${store.name}:`, error.message);
               }
+            } else {
+              console.warn(`⚠️  No product found for inventory item ID: ${inventoryItemId}`);
             }
           }
+          
+          console.log(`✅ Updated ${storeUpdated} items for ${store.name}`);
+        } else {
+          console.warn(`⚠️  No inventory data found for ${store.name} (Location ID: ${store.shopifyLocationId})`);
         }
       }
+    } else {
+      console.warn('⚠️  No inventory item IDs to sync');
     }
     
     console.log(`✅ Step 3/3 Complete: ${syncResults.inventory.updated} inventory records updated`);
