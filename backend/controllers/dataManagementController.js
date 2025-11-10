@@ -186,9 +186,19 @@ exports.refreshData = async (req, res) => {
     // STEP 1: Sync Stores
     console.log('🔄 Step 1/3: Syncing stores from Shopify...');
     
-    // First, unassign all users from stores to avoid foreign key constraint errors
+    // First, save user-store assignments before unassigning
     const userRepo = getUserRepository();
-    const allUsers = await userRepo.find();
+    const allUsers = await userRepo.find({ relations: ['assignedStore'] });
+    const userStoreMap = new Map(); // email -> store name mapping
+    
+    for (const user of allUsers) {
+      if (user.assignedStore) {
+        userStoreMap.set(user.email, user.assignedStore.name);
+        console.log(`💾 Saved: ${user.email} -> ${user.assignedStore.name}`);
+      }
+    }
+    
+    // Unassign all users from stores to avoid foreign key constraint errors
     let unassignedCount = 0;
     for (const user of allUsers) {
       if (user.assignedStoreId) {
@@ -239,6 +249,28 @@ exports.refreshData = async (req, res) => {
     
     syncResults.stores.synced = shopifyLocations.length;
     console.log(`✅ Step 1/3 Complete: Synced ${syncResults.stores.synced} stores`);
+    
+    // Re-assign users to their stores based on saved mapping
+    if (userStoreMap.size > 0) {
+      console.log('🔄 Re-assigning users to stores...');
+      let reassignedCount = 0;
+      
+      for (const [userEmail, storeName] of userStoreMap.entries()) {
+        const user = allUsers.find(u => u.email === userEmail);
+        const store = createdStores.find(s => s.name === storeName);
+        
+        if (user && store) {
+          user.assignedStoreId = store.id;
+          await userRepo.save(user);
+          reassignedCount++;
+          console.log(`✅ Re-assigned: ${userEmail} -> ${storeName} (ID: ${store.id})`);
+        } else {
+          console.log(`⚠️  Could not re-assign ${userEmail} to ${storeName}`);
+        }
+      }
+      
+      console.log(`✅ Re-assigned ${reassignedCount} users to stores`);
+    }
     
     // STEP 2: Sync Products
     console.log('🔄 Step 2/3: Syncing products from Shopify...');
