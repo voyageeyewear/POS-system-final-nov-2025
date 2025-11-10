@@ -5,8 +5,8 @@ const { DataSource } = require('typeorm');
 const AppDataSource = new DataSource({
   type: 'postgres',
   url: process.env.DATABASE_URL,
-  synchronize: process.env.NODE_ENV !== 'production', // Auto-create tables in development
-  logging: process.env.NODE_ENV === 'development',
+  synchronize: true, // Auto-create tables (enabled for initial setup)
+  logging: true, // Enable logging to see what's happening
   entities: ['entities/*.js'],
   migrations: ['migrations/*.js'],
   subscribers: [],
