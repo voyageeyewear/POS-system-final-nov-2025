@@ -28,19 +28,30 @@ exports.getAllProducts = async (req, res) => {
     const { category, search, page = 1, limit = 50 } = req.query;
     const productRepo = getProductRepository();
     
-    const where = { isActive: true };
+    // AGGRESSIVE FIX: Get user info from request
+    const user = req.user;
+    const isCashier = user && user.role === 'cashier';
+    const userStoreId = user?.assignedStoreId;
     
-    if (category) {
-      where.category = category;
-    }
+    console.log('📦 Getting products for user:', {
+      role: user?.role,
+      assignedStoreId: userStoreId,
+      isCashier
+    });
     
-    // For search, we'll handle it separately due to TypeORM limitations with OR
     const pageNum = parseInt(page);
     const limitNum = parseInt(limit);
     const skip = (pageNum - 1) * limitNum;
 
     let queryBuilder = productRepo.createQueryBuilder('product')
       .where('product.isActive = :isActive', { isActive: true });
+
+    // AGGRESSIVE FIX: If cashier, ONLY show products available in their store
+    if (isCashier && userStoreId) {
+      console.log(`🔒 Filtering products for cashier's store ID: ${userStoreId}`);
+      queryBuilder
+        .innerJoin('product.inventory', 'cashier_inventory', 'cashier_inventory.storeId = :storeId AND cashier_inventory.quantity > 0', { storeId: userStoreId });
+    }
 
     if (category) {
       queryBuilder.andWhere('product.category = :category', { category });
@@ -55,6 +66,7 @@ exports.getAllProducts = async (req, res) => {
 
     // Get total count
     const total = await queryBuilder.getCount();
+    console.log(`📊 Found ${total} products for this user`);
 
     // Get paginated products with inventory
     const products = await queryBuilder
@@ -66,23 +78,34 @@ exports.getAllProducts = async (req, res) => {
       .getMany();
 
     // Transform products to match frontend expectations
-    const transformedProducts = products.map(product => ({
-      _id: product.id,
-      id: product.id,
-      name: product.name,
-      sku: product.sku,
-      category: product.category,
-      price: parseFloat(product.price),
-      taxRate: product.taxRate,
-      description: product.description,
-      image: product.image,
-      shopifyProductId: product.shopifyProductId,
-      shopifyVariantId: product.shopifyVariantId,
-      isActive: product.isActive,
-      inventory: product.inventory || [],
-      createdAt: product.createdAt,
-      updatedAt: product.updatedAt
-    }));
+    const transformedProducts = products.map(product => {
+      let inventoryToShow = product.inventory || [];
+      
+      // AGGRESSIVE FIX: If cashier, only show their store's inventory
+      if (isCashier && userStoreId) {
+        inventoryToShow = inventoryToShow.filter(inv => inv.storeId === userStoreId);
+      }
+      
+      return {
+        _id: product.id,
+        id: product.id,
+        name: product.name,
+        sku: product.sku,
+        category: product.category,
+        price: parseFloat(product.price),
+        taxRate: product.taxRate,
+        description: product.description,
+        image: product.image,
+        shopifyProductId: product.shopifyProductId,
+        shopifyVariantId: product.shopifyVariantId,
+        isActive: product.isActive,
+        inventory: inventoryToShow,
+        createdAt: product.createdAt,
+        updatedAt: product.updatedAt
+      };
+    });
+
+    console.log(`✅ Returning ${transformedProducts.length} products`);
 
     res.json({ 
       products: transformedProducts,

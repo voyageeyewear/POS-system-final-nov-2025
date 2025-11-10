@@ -152,6 +152,14 @@ exports.getStoreInventory = async (req, res) => {
         quantity: inv.quantity
       }));
 
+    // DIAGNOSTIC: Log if inventory is empty
+    if (inventoryData.length === 0) {
+      console.warn(`⚠️  Store ${storeId} has NO products with available stock!`);
+      console.warn(`   Total inventory records: ${inventoryItems.length}`);
+      console.warn(`   Products with quantity > 0: 0`);
+      console.warn(`   💡 ACTION NEEDED: Run full Shopify sync to populate inventory!`);
+    }
+
     // Cache the inventory for 30 minutes (1800000 ms)
     cache.set(cacheKey, inventoryData, 1800000);
 
