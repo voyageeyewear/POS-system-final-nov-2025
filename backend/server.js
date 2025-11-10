@@ -1,7 +1,6 @@
 require('reflect-metadata');
 require('dotenv').config();
 const express = require('express');
-const cors = require('cors');
 const { AppDataSource } = require('./data-source');
 
 // Import routes
@@ -15,6 +14,35 @@ const dataManagementRoutes = require('./routes/dataManagement');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// ========================================
+// AGGRESSIVE CORS CONFIGURATION - FIRST THING!
+// ========================================
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  console.log('🌐 Incoming request:', {
+    method: req.method,
+    path: req.path,
+    origin: origin,
+    headers: req.headers
+  });
+
+  // Set CORS headers for ALL requests
+  res.setHeader('Access-Control-Allow-Origin', origin || '*');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD');
+  res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control, Pragma');
+  res.setHeader('Access-Control-Expose-Headers', 'Content-Type, Authorization, Content-Length, X-Requested-With');
+  res.setHeader('Access-Control-Max-Age', '86400'); // 24 hours
+
+  // Handle preflight OPTIONS request immediately
+  if (req.method === 'OPTIONS') {
+    console.log('✅ Handling OPTIONS preflight request for:', req.path);
+    return res.status(200).end();
+  }
+
+  next();
+});
+
 // Initialize TypeORM
 AppDataSource.initialize()
   .then(() => {
@@ -25,28 +53,7 @@ AppDataSource.initialize()
     process.exit(1);
   });
 
-// Middleware
-// Configure CORS - Allow all Railway domains for now
-app.use((req, res, next) => {
-  const origin = req.get('origin');
-  console.log('📨 Request from origin:', origin);
-  
-  // Allow all Railway domains and localhost
-  if (!origin || origin.includes('railway.app') || origin.includes('localhost')) {
-    res.header('Access-Control-Allow-Origin', origin || '*');
-    res.header('Access-Control-Allow-Credentials', 'true');
-    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
-    res.header('Access-Control-Expose-Headers', 'Content-Type, Authorization');
-  }
-  
-  // Handle preflight
-  if (req.method === 'OPTIONS') {
-    return res.sendStatus(200);
-  }
-  
-  next();
-});
+// Parse JSON and URL-encoded bodies
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -71,13 +78,18 @@ app.get('/api/health', (req, res) => {
 
 // 404 handler
 app.use((req, res) => {
-  res.status(404).json({ error: 'Route not found' });
+  console.log('❌ 404 - Route not found:', req.method, req.path);
+  res.status(404).json({ error: 'Route not found', path: req.path });
 });
 
 // Error handler
 app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ error: 'Something went wrong!', message: err.message });
+  console.error('❌ Server error:', err.stack);
+  res.status(500).json({ 
+    error: 'Something went wrong!', 
+    message: err.message,
+    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+  });
 });
 
 // Start server
