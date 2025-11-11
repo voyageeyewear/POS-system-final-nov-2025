@@ -68,6 +68,19 @@ class InvoiceGenerator {
   async generateInvoice(sale, store, customer) {
     return new Promise((resolve, reject) => {
       try {
+        console.log('🔍 INVOICE GENERATION DEBUG:');
+        console.log('Sale ID:', sale.id);
+        console.log('Invoice Number:', sale.invoiceNumber);
+        console.log('Sale Items Count:', sale.items?.length || 0);
+        console.log('Sale Items Sample:', sale.items?.[0] ? {
+          name: sale.items[0].name,
+          unitPrice: sale.items[0].unitPrice,
+          quantity: sale.items[0].quantity,
+          taxRate: sale.items[0].taxRate
+        } : 'No items');
+        console.log('Store:', store?.name);
+        console.log('Customer:', customer?.name);
+        
         // Create invoices directory
         const invoicesDir = path.join(__dirname, '../invoices');
         if (!fs.existsSync(invoicesDir)) {
@@ -498,6 +511,17 @@ class InvoiceGenerator {
         });
 
       } catch (error) {
+        console.error('❌ INVOICE GENERATION ERROR:');
+        console.error('Error Type:', error.constructor.name);
+        console.error('Error Message:', error.message);
+        console.error('Error Stack:', error.stack);
+        console.error('Sale Data:', {
+          id: sale?.id,
+          invoiceNumber: sale?.invoiceNumber,
+          itemsCount: sale?.items?.length,
+          subtotal: sale?.subtotal,
+          totalAmount: sale?.totalAmount
+        });
         reject(error);
       }
     });

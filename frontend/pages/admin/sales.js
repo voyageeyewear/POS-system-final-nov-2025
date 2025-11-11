@@ -72,6 +72,7 @@ export default function SalesReports() {
 
   const downloadInvoice = async (saleId, invoiceNumber) => {
     try {
+      console.log(`📥 Downloading invoice for sale ID: ${saleId}`);
       const response = await saleAPI.downloadInvoice(saleId);
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
@@ -82,7 +83,12 @@ export default function SalesReports() {
       link.remove();
       toast.success('Invoice downloaded');
     } catch (error) {
-      toast.error('Failed to download invoice');
+      console.error('❌ Invoice download error:', error);
+      console.error('Error response:', error.response?.data);
+      
+      // Show detailed error message
+      const errorMsg = error.response?.data?.error || error.message || 'Failed to download invoice';
+      toast.error(errorMsg, { duration: 5000 });
     }
   };
 

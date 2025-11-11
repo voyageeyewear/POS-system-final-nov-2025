@@ -301,7 +301,17 @@ exports.generateInvoice = async (req, res) => {
     res.download(filePath, `${sale.invoiceNumber}.pdf`);
   } catch (error) {
     console.error('❌ Invoice generation error:', error);
-    res.status(400).json({ error: error.message });
+    console.error('Error details:', {
+      message: error.message,
+      stack: error.stack,
+      saleId: req.params.saleId
+    });
+    
+    // Return detailed error message
+    res.status(400).json({ 
+      error: error.message || 'Failed to generate invoice',
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 };
 
