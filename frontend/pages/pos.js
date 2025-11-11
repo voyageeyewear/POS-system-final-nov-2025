@@ -143,7 +143,7 @@ export default function POS() {
       console.log('🚀 STEP 1: Loading first 50 products...');
       const firstBatchResponse = await productAPI.getAll({ page: 1, limit: 50 });
       const firstBatchData = firstBatchResponse.data.products || [];
-      const totalCount = firstBatchResponse.data.total || firstBatchData.length;
+      const totalCount = firstBatchResponse.data.pagination?.total || firstBatchData.length;
       
       setTotalProductCount(totalCount);
       

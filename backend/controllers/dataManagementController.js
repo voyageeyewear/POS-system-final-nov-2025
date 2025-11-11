@@ -290,7 +290,7 @@ async function createDemoData(req, res) {
         price: Math.floor(Math.random() * 10000) + 1000,
         taxRate: category === 'sunglass' ? 18 : 5,
         description: `Premium ${style} ${category} by ${brand}`,
-        image: `https://via.placeholder.com/300x200?text=${brand}+${style}`,
+        image: `https://placehold.co/300x200/e0e0e0/666666?text=${encodeURIComponent(brand + ' ' + style)}`,
         shopifyProductId: `demo-product-${i}`,
         shopifyVariantId: `demo-variant-${i}`,
         inventoryItemId: `demo-inv-${i}`,
