@@ -216,7 +216,8 @@ exports.getAllSales = async (req, res) => {
     let queryBuilder = saleRepo.createQueryBuilder('sale')
       .leftJoinAndSelect('sale.store', 'store')
       .leftJoinAndSelect('sale.cashier', 'cashier')
-      .leftJoinAndSelect('sale.customer', 'customer');
+      .leftJoinAndSelect('sale.customer', 'customer')
+      .leftJoinAndSelect('sale.items', 'items');
 
     // Role-based filtering
     if (req.user.role === 'cashier' && req.user.assignedStore) {
