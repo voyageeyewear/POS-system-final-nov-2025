@@ -192,6 +192,12 @@ exports.updateUser = async (req, res) => {
     const updates = req.body;
     const userRepo = getUserRepository();
 
+    console.log('🔄 UPDATE USER REQUEST:', {
+      userId,
+      updates,
+      assignedStoreId: updates.assignedStoreId
+    });
+
     // Don't allow password update through this endpoint
     delete updates.password;
 
@@ -204,14 +210,44 @@ exports.updateUser = async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
+    console.log('📝 BEFORE UPDATE:', {
+      userEmail: user.email,
+      currentStoreId: user.assignedStoreId,
+      currentStore: user.assignedStore?.name
+    });
+
     // Update user fields
     Object.assign(user, updates);
-    await userRepo.save(user);
+    
+    console.log('📝 AFTER ASSIGN:', {
+      userEmail: user.email,
+      newStoreId: user.assignedStoreId
+    });
+    
+    const savedUser = await userRepo.save(user);
+    
+    console.log('✅ AFTER SAVE:', {
+      userEmail: savedUser.email,
+      savedStoreId: savedUser.assignedStoreId
+    });
+    
+    // Reload with relations to ensure assignedStore is loaded
+    const updatedUser = await userRepo.findOne({
+      where: { id: savedUser.id },
+      relations: ['assignedStore']
+    });
 
-    const userResponse = UserMethods.toJSON(user);
+    console.log('✅ RELOADED USER:', {
+      userEmail: updatedUser.email,
+      finalStoreId: updatedUser.assignedStoreId,
+      finalStore: updatedUser.assignedStore?.name
+    });
+
+    const userResponse = UserMethods.toJSON(updatedUser);
 
     res.json({ message: 'User updated successfully', user: userResponse });
   } catch (error) {
+    console.error('❌ UPDATE USER ERROR:', error);
     res.status(400).json({ error: error.message });
   }
 };
