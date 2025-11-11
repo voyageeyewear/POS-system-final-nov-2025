@@ -25,7 +25,7 @@ exports.createProduct = async (req, res) => {
 // Get all products
 exports.getAllProducts = async (req, res) => {
   try {
-    const { category, search, page = 1, limit = 50 } = req.query;
+    const { category, search, page = 1, limit = 50, storeId } = req.query;
     const productRepo = getProductRepository();
     
     // AGGRESSIVE FIX: Get user info from request
@@ -36,7 +36,8 @@ exports.getAllProducts = async (req, res) => {
     console.log('📦 Getting products for user:', {
       role: user?.role,
       assignedStoreId: userStoreId,
-      isCashier
+      isCashier,
+      filterStoreId: storeId
     });
     
     const pageNum = parseInt(page);
@@ -78,8 +79,12 @@ exports.getAllProducts = async (req, res) => {
     const transformedProducts = products.map(product => {
       let inventoryToShow = product.inventory || [];
       
-      // If cashier, only show their store's inventory
-      if (isCashier && userStoreId) {
+      // Filter inventory based on request
+      if (storeId) {
+        // Admin filtering by specific store
+        inventoryToShow = inventoryToShow.filter(inv => inv.storeId === parseInt(storeId));
+      } else if (isCashier && userStoreId) {
+        // Cashier sees only their store's inventory
         inventoryToShow = inventoryToShow.filter(inv => inv.storeId === userStoreId);
       }
       

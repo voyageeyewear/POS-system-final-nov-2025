@@ -14,6 +14,7 @@ export default function ProductsManagement() {
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
+  const [storeFilter, setStoreFilter] = useState('all');
   const [syncingInventory, setSyncingInventory] = useState(false);
   const [pagination, setPagination] = useState({
     page: 1,
@@ -41,6 +42,7 @@ export default function ProductsManagement() {
         page,
         limit: 50,
         ...(categoryFilter !== 'all' && { category: categoryFilter }),
+        ...(storeFilter !== 'all' && { storeId: storeFilter }),
         ...(searchTerm && { search: searchTerm })
       };
       
@@ -230,6 +232,33 @@ export default function ProductsManagement() {
         {/* Search and Filters */}
         <div className="bg-white p-4 rounded-lg shadow-sm mb-4">
           <div className="flex flex-col md:flex-row gap-3 mb-3">
+            {/* Store Filter Dropdown - Shopify Style */}
+            <div className="relative w-full md:w-64">
+              <select
+                value={storeFilter}
+                onChange={(e) => {
+                  setStoreFilter(e.target.value);
+                  setTimeout(() => {
+                    setPagination({ ...pagination, page: 1 });
+                    loadData(1);
+                  }, 100);
+                }}
+                className="w-full px-4 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none appearance-none bg-white font-medium text-gray-700 cursor-pointer"
+              >
+                <option value="all">All Locations</option>
+                {stores.map((store) => (
+                  <option key={store.id} value={store.id}>
+                    {store.name}
+                  </option>
+                ))}
+              </select>
+              <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
+            </div>
+            
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
               <input
@@ -303,10 +332,19 @@ export default function ProductsManagement() {
             </thead>
             <tbody className="divide-y divide-gray-200">
               {products.map((product) => {
-                const totalInventory = product.inventory?.reduce(
-                  (sum, inv) => sum + inv.quantity,
-                  0
-                ) || 0;
+                // Calculate inventory based on filter
+                let displayInventory = 0;
+                if (storeFilter === 'all') {
+                  // Show total across all stores
+                  displayInventory = product.inventory?.reduce(
+                    (sum, inv) => sum + inv.quantity,
+                    0
+                  ) || 0;
+                } else {
+                  // Show inventory for selected store only
+                  const storeInv = product.inventory?.find(inv => inv.storeId === parseInt(storeFilter));
+                  displayInventory = storeInv?.quantity || 0;
+                }
 
                 return (
                   <tr key={product._id} className="hover:bg-gray-50">
@@ -350,15 +388,20 @@ export default function ProductsManagement() {
                     <td className="px-4 py-3 text-sm font-medium">
                       <span
                         className={`${
-                          totalInventory > 20
+                          displayInventory > 20
                             ? 'text-green-600'
-                            : totalInventory > 0
+                            : displayInventory > 0
                             ? 'text-yellow-600'
                             : 'text-red-600'
                         }`}
                       >
-                        {totalInventory} units
+                        {displayInventory} units
                       </span>
+                      {storeFilter === 'all' && product.inventory && product.inventory.length > 0 && (
+                        <span className="text-xs text-gray-400 ml-2">
+                          ({product.inventory.length} stores)
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-sm">
                       <span
