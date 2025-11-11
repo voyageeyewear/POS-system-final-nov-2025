@@ -78,7 +78,7 @@ exports.getAllProducts = async (req, res) => {
     const transformedProducts = products.map(product => {
       let inventoryToShow = product.inventory || [];
       
-      // AGGRESSIVE FIX: If cashier, only show their store's inventory
+      // If cashier, only show their store's inventory
       if (isCashier && userStoreId) {
         inventoryToShow = inventoryToShow.filter(inv => inv.storeId === userStoreId);
       }
@@ -102,7 +102,8 @@ exports.getAllProducts = async (req, res) => {
       };
     });
 
-    console.log(`✅ Returning ${transformedProducts.length} products`);
+    console.log(`✅ Returning ${transformedProducts.length} products to ${user?.role || 'user'}`);
+    console.log(`📊 Sample product inventory:`, transformedProducts[0]?.inventory?.length || 0, 'store(s)');
 
     res.json({ 
       products: transformedProducts,
