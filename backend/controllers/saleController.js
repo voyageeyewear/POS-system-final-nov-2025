@@ -104,37 +104,50 @@ exports.createSale = async (req, res) => {
         throw new Error(`Insufficient inventory for ${product.name}`);
       }
 
-      // Calculate item totals
-      const unitPrice = parseFloat(product.price);
+      // Calculate item totals with TAX-INCLUSIVE PRICING
+      const unitPrice = parseFloat(product.price); // MRP (includes tax)
       const discount = item.discount || 0;
+      
+      // MRP for all quantities
+      const itemMRP = unitPrice * item.quantity;
+      const itemDiscount = discount * item.quantity;
+      
+      // Discounted MRP (still tax-inclusive)
+      const discountedMRP = itemMRP - itemDiscount;
+      
+      // Extract tax from tax-inclusive price
+      // Formula: Base = Price / (1 + TaxRate/100), Tax = Price - Base
+      const taxMultiplier = 1 + (product.taxRate / 100);
+      const baseAmount = discountedMRP / taxMultiplier;
+      const taxAmount = discountedMRP - baseAmount;
+      
+      // Discounted price per unit (tax-inclusive)
       const discountedPrice = unitPrice - discount;
-      const itemSubtotal = discountedPrice * item.quantity;
-      const taxAmount = (itemSubtotal * product.taxRate) / 100;
-      const itemTotal = itemSubtotal + taxAmount;
 
       saleItems.push({
         productId: product.id,
         name: product.name,
         sku: product.sku,
         quantity: item.quantity,
-        unitPrice,
+        unitPrice, // MRP per unit
         discount,
-        discountedPrice,
+        discountedPrice, // Discounted MRP per unit
         taxRate: product.taxRate,
-        taxAmount,
-        totalAmount: itemTotal
+        taxAmount, // Extracted tax
+        totalAmount: discountedMRP // Final amount (tax-inclusive)
       });
 
-      subtotal += unitPrice * item.quantity;
-      totalDiscount += discount * item.quantity;
-      totalTax += taxAmount;
+      subtotal += itemMRP; // MRP total
+      totalDiscount += itemDiscount;
+      totalTax += taxAmount; // Extracted tax
 
       // Update inventory
       inventory.quantity -= item.quantity;
       await inventoryRepo.save(inventory);
     }
 
-    const totalAmount = subtotal - totalDiscount + totalTax;
+    // Total is subtotal - discount (tax already included in prices)
+    const totalAmount = subtotal - totalDiscount;
 
     // Generate invoice number
     const invoiceNumber = await generateInvoiceNumber(parseInt(storeId));

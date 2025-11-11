@@ -282,25 +282,35 @@ export default function POS() {
     let totalTax = 0;
 
     cart.forEach((item) => {
-      const itemSubtotal = item.price * item.quantity;
+      // 🔥 TAX-INCLUSIVE PRICING: Price already includes tax (MRP)
+      const mrpPerItem = item.price; // MRP includes tax
+      const itemMRP = mrpPerItem * item.quantity;
       
-      // Calculate discount based on type
+      // Calculate discount based on type (on MRP)
       let itemDiscount = 0;
       if (item.discountType === 'percentage') {
-        itemDiscount = (item.price * item.discount / 100) * item.quantity;
+        itemDiscount = (mrpPerItem * item.discount / 100) * item.quantity;
       } else {
         itemDiscount = item.discount * item.quantity;
       }
       
-      const discountedAmount = itemSubtotal - itemDiscount;
-      const itemTax = (discountedAmount * item.taxRate) / 100;
+      // Final amount after discount (still tax-inclusive)
+      const discountedMRP = itemMRP - itemDiscount;
+      
+      // Extract tax from tax-inclusive price
+      // Formula: Base = Price / (1 + TaxRate/100)
+      // Tax = Price - Base
+      const taxMultiplier = 1 + (item.taxRate / 100);
+      const baseAmount = discountedMRP / taxMultiplier;
+      const itemTax = discountedMRP - baseAmount;
 
-      subtotal += itemSubtotal;
+      subtotal += itemMRP;
       totalDiscount += itemDiscount;
       totalTax += itemTax;
     });
 
-    const total = subtotal - totalDiscount + totalTax;
+    // Total is simply subtotal - discount (tax already included)
+    const total = subtotal - totalDiscount;
 
     return { subtotal, totalDiscount, totalTax, total };
   };
