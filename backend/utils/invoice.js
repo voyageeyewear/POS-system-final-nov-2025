@@ -403,9 +403,15 @@ class InvoiceGenerator {
         lineX += taxColWidths.igstAmt;
         doc.moveTo(lineX, itemY).lineTo(lineX, itemY + 25).stroke();
         
-        // Draw horizontal line for second row
+        // Calculate where Total Tax column starts
+        const totalTaxColumnStart = margin + taxColWidths.hsn + taxColWidths.taxable + 
+                                     taxColWidths.cgstRate + taxColWidths.cgstAmt + 
+                                     taxColWidths.sgstRate + taxColWidths.sgstAmt + 
+                                     taxColWidths.igstRate + taxColWidths.igstAmt;
+        
+        // Draw horizontal line for second row - STOP before Total Tax column
         doc.moveTo(margin + taxColWidths.hsn + taxColWidths.taxable, itemY + 12)
-           .lineTo(pageWidth - margin, itemY + 12).stroke();
+           .lineTo(totalTaxColumnStart, itemY + 12).stroke();
         
         colX = margin;
         doc.text('HSN/SAC', colX, itemY + 8, { width: taxColWidths.hsn, align: 'center' });
