@@ -109,6 +109,14 @@ exports.getAllProducts = async (req, res) => {
         inventoryToShow = inventoryToShow.filter(inv => inv.storeId === filterStoreId);
       }
       
+      // Transform inventory to ensure quantities are numbers, not strings
+      inventoryToShow = inventoryToShow.map(inv => ({
+        ...inv,
+        quantity: parseInt(inv.quantity) || 0,
+        storeId: parseInt(inv.storeId),
+        productId: parseInt(inv.productId)
+      }));
+      
       return {
         _id: product.id,
         id: product.id,

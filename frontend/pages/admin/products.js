@@ -340,8 +340,9 @@ export default function ProductsManagement() {
             <tbody className="divide-y divide-gray-200">
               {products.map((product) => {
                 // Calculate inventory - backend already filtered by store if selected
+                // IMPORTANT: PostgreSQL returns numbers as strings, must parse!
                 const displayInventory = product.inventory?.reduce(
-                  (sum, inv) => sum + inv.quantity,
+                  (sum, inv) => sum + (parseInt(inv.quantity) || 0),
                   0
                 ) || 0;
 

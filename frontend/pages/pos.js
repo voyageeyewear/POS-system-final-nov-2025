@@ -154,7 +154,8 @@ export default function POS() {
       // 🚀 SIMPLE: Show TOTAL inventory across ALL stores (like admin)
       const transformedProducts = productsData.map(product => {
         // Sum up inventory from ALL stores
-        const totalQuantity = product.inventory?.reduce((sum, inv) => sum + (inv.quantity || 0), 0) || 0;
+        // IMPORTANT: PostgreSQL returns numbers as strings, must parse!
+        const totalQuantity = product.inventory?.reduce((sum, inv) => sum + (parseInt(inv.quantity) || 0), 0) || 0;
         
         return {
           ...product,
