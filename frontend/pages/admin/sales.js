@@ -112,7 +112,7 @@ export default function SalesReports() {
               <p className="text-sm text-gray-600">Total Revenue</p>
             </div>
             <p className="text-2xl font-bold text-gray-800">
-              ₹{stats.totalRevenue.toFixed(0)}
+              ₹{parseFloat(stats.totalRevenue || 0).toFixed(0)}
             </p>
           </div>
           <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
@@ -121,7 +121,7 @@ export default function SalesReports() {
               <p className="text-sm text-gray-600">Avg Sale</p>
             </div>
             <p className="text-2xl font-bold text-gray-800">
-              ₹{stats.avgSaleAmount.toFixed(0)}
+              ₹{parseFloat(stats.avgSaleAmount || 0).toFixed(0)}
             </p>
           </div>
           <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
@@ -130,7 +130,7 @@ export default function SalesReports() {
               <p className="text-sm text-gray-600">Total Tax</p>
             </div>
             <p className="text-2xl font-bold text-gray-800">
-              ₹{stats.totalTax.toFixed(0)}
+              ₹{parseFloat(stats.totalTax || 0).toFixed(0)}
             </p>
           </div>
         </div>
@@ -240,7 +240,7 @@ export default function SalesReports() {
                     {sale.items?.length || 0} items
                   </td>
                   <td className="px-4 py-3 text-sm font-medium text-gray-800">
-                    ₹{sale.totalAmount.toFixed(2)}
+                    ₹{parseFloat(sale.totalAmount || 0).toFixed(2)}
                   </td>
                   <td className="px-4 py-3 text-sm">
                     <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs uppercase">

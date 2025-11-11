@@ -95,7 +95,7 @@ export default function InventorySummary() {
               <div>
                 <p className="text-gray-500 text-sm font-medium">Total Units</p>
                 <p className="text-3xl font-bold text-gray-800 mt-2">
-                  {summary?.grandTotalQuantity?.toLocaleString() || 0}
+                  {parseInt(summary?.grandTotalQuantity || 0).toLocaleString()}
                 </p>
               </div>
               <div className="bg-purple-100 p-3 rounded-lg">
@@ -109,7 +109,7 @@ export default function InventorySummary() {
               <div>
                 <p className="text-gray-500 text-sm font-medium">Total Value</p>
                 <p className="text-3xl font-bold text-gray-800 mt-2">
-                  ₹{summary?.totalInventoryValue?.toLocaleString(undefined, { maximumFractionDigits: 0 }) || 0}
+                  ₹{parseFloat(summary?.totalInventoryValue || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}
                 </p>
               </div>
               <div className="bg-yellow-100 p-3 rounded-lg">
@@ -182,7 +182,7 @@ export default function InventorySummary() {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-center">
-                      <span className="text-sm font-bold text-blue-600">{store.totalQuantity.toLocaleString()}</span>
+                      <span className="text-sm font-bold text-blue-600">{parseInt(store.totalQuantity || 0).toLocaleString()}</span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-center">
                       {store.lowStockItems > 0 ? (
@@ -204,7 +204,7 @@ export default function InventorySummary() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right">
                       <span className="text-sm font-medium text-gray-900">
-                        ₹{store.totalValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                        ₹{parseFloat(store.totalValue || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}
                       </span>
                     </td>
                   </tr>
@@ -217,13 +217,13 @@ export default function InventorySummary() {
                   </td>
                   <td className="px-6 py-4 text-center">
                     <span className="text-sm font-bold text-blue-600">
-                      {summary?.grandTotalQuantity?.toLocaleString() || 0}
+                      {parseInt(summary?.grandTotalQuantity || 0).toLocaleString()}
                     </span>
                   </td>
                   <td colSpan="2"></td>
                   <td className="px-6 py-4 text-right">
                     <span className="text-sm font-bold text-gray-900">
-                      ₹{summary?.totalInventoryValue?.toLocaleString(undefined, { maximumFractionDigits: 0 }) || 0}
+                      ₹{parseFloat(summary?.totalInventoryValue || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}
                     </span>
                   </td>
                 </tr>

@@ -97,7 +97,7 @@ export default function AdminDashboard() {
             <DollarSign className="w-8 h-8 text-yellow-500" />
           </div>
           <p className="text-2xl font-bold text-gray-800">
-            ₹{stats.totalRevenue.toFixed(0)}
+            ₹{parseFloat(stats.totalRevenue || 0).toFixed(0)}
           </p>
           <p className="text-sm text-gray-600">Total Revenue</p>
         </div>
@@ -170,7 +170,7 @@ export default function AdminDashboard() {
                       {sale.customer?.name}
                     </td>
                     <td className="px-4 py-3 text-sm font-medium text-gray-800">
-                      ₹{sale.totalAmount.toFixed(2)}
+                      ₹{parseFloat(sale.totalAmount || 0).toFixed(2)}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600">
                       {new Date(sale.saleDate).toLocaleDateString()}
