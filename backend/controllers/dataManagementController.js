@@ -456,10 +456,35 @@ exports.refreshData = async (req, res) => {
     // STEP 2: Sync Products
     console.log('🔄 Step 2/3: Syncing products from Shopify...');
     const shopifyProducts = await shopifyService.getProducts();
+    console.log(`📦 Received ${shopifyProducts.length} products from Shopify`);
+    
+    // 🔥 DIAGNOSTIC: Check first product's variant structure
+    if (shopifyProducts.length > 0 && shopifyProducts[0].variants.length > 0) {
+      const sampleVariant = shopifyProducts[0].variants[0];
+      console.log('📋 Sample variant from Shopify:', {
+        id: sampleVariant.id,
+        title: sampleVariant.title,
+        sku: sampleVariant.sku,
+        price: sampleVariant.price,
+        inventory_item_id: sampleVariant.inventory_item_id,
+        has_inventory_item_id: !!sampleVariant.inventory_item_id
+      });
+    }
+    
+    let withInventoryId = 0;
+    let withoutInventoryId = 0;
     
     for (const shopifyProduct of shopifyProducts) {
       for (const variant of shopifyProduct.variants) {
         try {
+          // 🔥 DIAGNOSTIC: Track inventory IDs
+          if (variant.inventory_item_id) {
+            withInventoryId++;
+          } else {
+            withoutInventoryId++;
+            console.warn(`⚠️  Variant ${variant.id} (${shopifyProduct.title}) has NO inventory_item_id!`);
+          }
+          
           const productData = {
             name: variant.title === 'Default Title' 
               ? shopifyProduct.title 
@@ -496,6 +521,13 @@ exports.refreshData = async (req, res) => {
     }
     
     console.log(`✅ Step 2/3 Complete: ${syncResults.products.created} products created, ${syncResults.products.updated} updated`);
+    console.log(`📊 Inventory ID Status: ${withInventoryId} WITH inventory_item_id, ${withoutInventoryId} WITHOUT inventory_item_id`);
+    
+    if (withoutInventoryId > 0) {
+      console.error(`❌ CRITICAL: ${withoutInventoryId} variants missing inventory_item_id from Shopify!`);
+      console.error('💡 This means Shopify is not returning inventory_item_id in the API response.');
+      console.error('💡 This could be due to API version or product configuration.');
+    }
     
     // STEP 3: Sync Inventory
     console.log('🔄 Step 3/3: Syncing inventory from Shopify...');
