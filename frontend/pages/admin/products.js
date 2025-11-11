@@ -339,19 +339,11 @@ export default function ProductsManagement() {
             </thead>
             <tbody className="divide-y divide-gray-200">
               {products.map((product) => {
-                // Calculate inventory based on filter
-                let displayInventory = 0;
-                if (storeFilter === 'all') {
-                  // Show total across all stores
-                  displayInventory = product.inventory?.reduce(
-                    (sum, inv) => sum + inv.quantity,
-                    0
-                  ) || 0;
-                } else {
-                  // Show inventory for selected store only
-                  const storeInv = product.inventory?.find(inv => inv.storeId === parseInt(storeFilter));
-                  displayInventory = storeInv?.quantity || 0;
-                }
+                // Calculate inventory - backend already filtered by store if selected
+                const displayInventory = product.inventory?.reduce(
+                  (sum, inv) => sum + inv.quantity,
+                  0
+                ) || 0;
 
                 return (
                   <tr key={product._id} className="hover:bg-gray-50">
@@ -404,9 +396,9 @@ export default function ProductsManagement() {
                       >
                         {displayInventory} units
                       </span>
-                      {storeFilter === 'all' && product.inventory && product.inventory.length > 0 && (
+                      {storeFilter === 'all' && product.inventory && product.inventory.length > 1 && (
                         <span className="text-xs text-gray-400 ml-2">
-                          ({product.inventory.length} stores)
+                          ({product.inventory.length} locations)
                         </span>
                       )}
                     </td>
