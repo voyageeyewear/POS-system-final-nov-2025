@@ -61,6 +61,37 @@ export default function POS() {
     return () => clearInterval(interval);
   }, [user]);
 
+  // 🔥 AUTO-SYNC: Periodic inventory refresh (every 5 minutes)
+  useEffect(() => {
+    if (!user || user.role !== 'cashier') return;
+    
+    console.log('🔄 Setting up periodic auto-sync (every 5 minutes)...');
+    
+    const autoSyncInterval = setInterval(async () => {
+      console.log('🔄 Periodic auto-sync triggered...');
+      
+      try {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://pos-system-final-nov-2025-production.up.railway.app/api'}/data-management/refresh`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (response.ok) {
+          console.log('✅ Periodic sync complete! Refreshing products...');
+          frontendCache.clear();
+          loadProducts();
+        }
+      } catch (error) {
+        console.error('Periodic sync error:', error);
+      }
+    }, 5 * 60 * 1000); // Every 5 minutes
+    
+    return () => clearInterval(autoSyncInterval);
+  }, [user]);
+
   const checkSyncStatus = async () => {
     try {
       const response = await authAPI.getSyncStatus();
@@ -115,7 +146,44 @@ export default function POS() {
       if (transformedProducts.length === 0) {
         toast.error('No products found. Click "FORCE SYNC" to sync from Shopify.', { duration: 5000 });
       } else {
-        toast.success(`✅ Loaded ${transformedProducts.length} products!`, { duration: 2000 });
+        // 🔥 AUTO-SYNC: Check if products have inventory
+        const productsWithStock = transformedProducts.filter(p => p.quantity > 0).length;
+        
+        if (productsWithStock === 0 && transformedProducts.length > 0) {
+          // All products have 0 stock - auto-sync!
+          console.log('⚠️ All products have 0 inventory. Auto-syncing from Shopify...');
+          toast.loading('🔄 Auto-syncing inventory from Shopify...', { id: 'auto-sync-inventory' });
+          
+          // Trigger inventory sync
+          setTimeout(async () => {
+            try {
+              const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://pos-system-final-nov-2025-production.up.railway.app/api'}/data-management/refresh`, {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                  'Content-Type': 'application/json'
+                }
+              });
+              
+              if (response.ok) {
+                toast.success('✅ Auto-sync complete! Reloading products...', { id: 'auto-sync-inventory' });
+                
+                // Reload products after 2 seconds
+                setTimeout(() => {
+                  frontendCache.clear();
+                  loadProducts();
+                }, 2000);
+              } else {
+                toast.error('❌ Auto-sync failed. Click "FORCE SYNC" button.', { id: 'auto-sync-inventory' });
+              }
+            } catch (error) {
+              console.error('Auto-sync error:', error);
+              toast.error('❌ Auto-sync failed. Click "FORCE SYNC" button.', { id: 'auto-sync-inventory' });
+            }
+          }, 1000);
+        } else {
+          toast.success(`✅ Loaded ${transformedProducts.length} products! (${productsWithStock} in stock)`, { duration: 2000 });
+        }
       }
       
     } catch (error) {
