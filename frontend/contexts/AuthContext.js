@@ -63,11 +63,34 @@ export function AuthProvider({ children }) {
     toast.success('Logged out successfully');
   };
 
+  // 🔥 NEW: Refresh user data from server
+  const refreshUser = async () => {
+    try {
+      console.log('🔄 Refreshing user data from server...');
+      const response = await authAPI.getProfile();
+      const updatedUser = response.data;
+      
+      console.log('✅ User data refreshed:', updatedUser);
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      setUser(updatedUser);
+      
+      return updatedUser;
+    } catch (error) {
+      console.error('❌ Error refreshing user:', error);
+      if (error.response?.status === 401) {
+        // Token expired, logout
+        logout();
+      }
+      throw error;
+    }
+  };
+
   const value = {
     user,
     loading,
     login,
     logout,
+    refreshUser, // 🔥 NEW: Export refresh function
     isAdmin: user?.role === 'admin',
     isCashier: user?.role === 'cashier',
   };

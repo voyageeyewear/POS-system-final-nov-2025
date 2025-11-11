@@ -12,7 +12,7 @@ import frontendCache from '../utils/cache';
 
 export default function POS() {
   const router = useRouter();
-  const { user, loading } = useAuth();
+  const { user, loading, refreshUser } = useAuth();
   const [products, setProducts] = useState([]);
   const [selectedProducts, setSelectedProducts] = useState([]);
   const [cart, setCart] = useState([]);
@@ -49,10 +49,33 @@ export default function POS() {
       router.push('/login');
     } else if (user?.role === 'admin') {
       router.push('/admin');
-    } else if (user?.assignedStore) {
-      console.log('🚀 PROGRESSIVE LOADING: First 50 products in ~5 seconds!');
-      loadProducts();
-      checkSyncStatus();
+    } else if (user && user.role === 'cashier') {
+      // Check if user has assigned store
+      if (user.assignedStore) {
+        console.log('🚀 PROGRESSIVE LOADING: First 50 products in ~5 seconds!');
+        loadProducts();
+        checkSyncStatus();
+      } else {
+        // 🔥 AUTO-REFRESH: User has no store, refresh data from server
+        console.log('⚠️  No assigned store found. Refreshing user data from server...');
+        toast.loading('🔄 Checking for store assignment...', { id: 'refresh-user' });
+        
+        refreshUser()
+          .then((updatedUser) => {
+            if (updatedUser.assignedStore) {
+              console.log('✅ Store assignment found:', updatedUser.assignedStore.name);
+              toast.success(`✅ Store assigned: ${updatedUser.assignedStore.name}`, { id: 'refresh-user' });
+              // loadProducts will be called automatically when user updates
+            } else {
+              console.warn('❌ Still no store assigned after refresh');
+              toast.error('❌ No store assigned. Contact admin to assign a store.', { id: 'refresh-user', duration: 10000 });
+            }
+          })
+          .catch((error) => {
+            console.error('❌ Error refreshing user:', error);
+            toast.error('❌ Could not refresh user data. Try logging out and in again.', { id: 'refresh-user', duration: 10000 });
+          });
+      }
     }
   }, [user, loading, router]);
 
