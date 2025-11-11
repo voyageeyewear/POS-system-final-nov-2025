@@ -22,23 +22,26 @@ export default function POS() {
   const [currentPage, setCurrentPage] = useState(1);
   const [showCustomerModal, setShowCustomerModal] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('cash');
-  const [loadingProducts, setLoadingProducts] = useState(false); // NUCLEAR: Start with FALSE - no blocking loader!
+  const [loadingProducts, setLoadingProducts] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [loadingMessage, setLoadingMessage] = useState('Initializing...');
   const [processing, setProcessing] = useState(false);
   const [syncStatus, setSyncStatus] = useState(null);
   const [loadingTimeout, setLoadingTimeout] = useState(false);
-  const [backgroundLoading, setBackgroundLoading] = useState(true); // NEW: Non-blocking background load
-  const ITEMS_PER_PAGE = 50; // AGGRESSIVE: Show 50 products per page
-  const LOADING_TIMEOUT_MS = 15000; // 15 seconds max loading time
+  const [backgroundLoading, setBackgroundLoading] = useState(false); // NEW: Progressive background loading
+  const [bgLoadingPercent, setBgLoadingPercent] = useState(0); // NEW: Background loading percentage
+  const [totalProductCount, setTotalProductCount] = useState(0); // NEW: Total products in DB
+  const ITEMS_PER_PAGE = 50; // Show 50 products per page
+  const INITIAL_LOAD_SIZE = 50; // Load first 50 products immediately
+  const LOADING_TIMEOUT_MS = 15000;
 
-  // VERSION CHECK - v7.0 - ULTRA AGGRESSIVE: AUTO-SYNC!
+  // VERSION CHECK - v8.0 - PROGRESSIVE LOADING!
   useEffect(() => {
-    console.log('%c🔥🔥🔥 POS VERSION 7.0 - ULTRA AGGRESSIVE: AUTO-SYNC!', 'background: #ff0000; color: #fff; font-size: 24px; padding: 10px; font-weight: bold;');
-    console.log('💥 ULTRA NUCLEAR: Page shows IMMEDIATELY');
-    console.log('⚡ AUTO-SYNC: Automatically creates demo data if none found!');
-    console.log('🎭 NO USER ACTION NEEDED - System fixes itself!');
-    console.log('📊 Demo mode activates automatically!');
+    console.log('%c🚀 POS VERSION 8.0 - PROGRESSIVE LOADING!', 'background: #0066ff; color: #fff; font-size: 24px; padding: 10px; font-weight: bold;');
+    console.log('⚡ First 50 products in 5 seconds!');
+    console.log('📊 Remaining products load in background!');
+    console.log('📈 Progress bar shows loading status!');
+    console.log('🎯 Zero wait time for cashier!');
   }, []);
 
   useEffect(() => {
@@ -47,76 +50,11 @@ export default function POS() {
     } else if (user?.role === 'admin') {
       router.push('/admin');
     } else if (user?.assignedStore) {
-      console.log('🔥 NUCLEAR: Loading products in BACKGROUND (non-blocking)');
-      
-      // Load products in background WITHOUT blocking the UI
-      loadProducts().finally(() => {
-        setBackgroundLoading(false);
-      });
-      
+      console.log('🚀 PROGRESSIVE LOADING: First 50 products in ~5 seconds!');
+      loadProducts();
       checkSyncStatus();
     }
   }, [user, loading, router]);
-
-  // 🔥🔥🔥 ULTRA AGGRESSIVE: Auto-sync if no products found (WORKS WITHOUT STORE ASSIGNMENT!)
-  useEffect(() => {
-    if (!user || backgroundLoading) return;
-    
-    console.log('🔍 AUTO-SYNC CHECK:', {
-      hasUser: !!user,
-      hasStore: !!user.assignedStore,
-      productsCount: products.length,
-      backgroundLoading
-    });
-    
-    // Only trigger auto-sync once
-    const hasTriedAutoSync = sessionStorage.getItem('autoSyncAttempted');
-    
-    // MEGA AGGRESSIVE: Trigger even without store assignment!
-    if (products.length === 0 && !hasTriedAutoSync) {
-      console.log('⚡⚡⚡ AUTO-SYNC TRIGGERED: No products found, syncing automatically...');
-      console.log('🎭 DEMO MODE: Will create stores, products, and auto-assign user to first store!');
-      sessionStorage.setItem('autoSyncAttempted', 'true');
-      
-      toast.loading('🔥 AUTO-SYNC: Creating demo data automatically...', { id: 'auto-sync', duration: 15000 });
-      
-      setTimeout(async () => {
-        try {
-          const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://pos-system-final-nov-2025-production.up.railway.app/api';
-          console.log('📡 Calling API:', `${apiUrl}/data-management/refresh`);
-          
-          const response = await fetch(`${apiUrl}/data-management/refresh`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${localStorage.getItem('token')}`,
-              'Content-Type': 'application/json'
-            }
-          });
-          
-          console.log('📡 Response status:', response.status);
-          
-          if (response.ok) {
-            const data = await response.json();
-            console.log('✅ AUTO-SYNC SUCCESS:', data);
-            toast.success('✅ Demo data created! Reloading...', { id: 'auto-sync', duration: 3000 });
-            setTimeout(() => {
-              sessionStorage.removeItem('autoSyncAttempted');
-              window.location.reload();
-            }, 2000);
-          } else {
-            const errorText = await response.text();
-            console.error('❌ AUTO-SYNC FAILED:', response.status, errorText);
-            toast.error(`❌ Auto-sync failed (${response.status}). Scroll down and use manual sync button.`, { id: 'auto-sync', duration: 10000 });
-            sessionStorage.removeItem('autoSyncAttempted');
-          }
-        } catch (error) {
-          console.error('❌ AUTO-SYNC ERROR:', error);
-          toast.error('❌ Network error. Scroll down and click manual sync button.', { id: 'auto-sync', duration: 10000 });
-          sessionStorage.removeItem('autoSyncAttempted');
-        }
-      }, 3000); // Wait 3 seconds to ensure everything is loaded
-    }
-  }, [products, backgroundLoading, user]);
 
   // Check sync status periodically
   useEffect(() => {
@@ -143,18 +81,11 @@ export default function POS() {
   };
 
   const loadProducts = async (forceRefresh = false) => {
-    console.log('%c🔥 LOADPRODUCTS CALLED - BACKGROUND MODE!', 'background: #ff6600; color: #fff; font-size: 16px; padding: 5px;');
-    console.log('⏰ Timestamp:', new Date().toISOString());
-    console.log('🔄 Force refresh:', forceRefresh);
-    console.log('💥 NUCLEAR: This will NOT block the UI!');
+    console.log('%c🚀 PROGRESSIVE LOADING STARTED!', 'background: #0066ff; color: #fff; font-size: 16px; padding: 5px;');
+    console.log('⚡ Step 1: Load first 50 products (5 sec)');
+    console.log('📊 Step 2: Load remaining products in background');
     
     try {
-      setBackgroundLoading(true); // Show non-blocking indicator
-      
-      console.log('🔍 User object:', user);
-      console.log('🔍 User assignedStore:', user?.assignedStore);
-      console.log('🔍 Store ID to use:', user?.assignedStore?.id || user?.assignedStore?._id);
-      
       if (!user) {
         console.error('❌ NO USER OBJECT!');
         toast.error('User not found. Please login again.');
@@ -178,55 +109,27 @@ export default function POS() {
 
       const cacheKey = `products_all_stores`;
       
-      // Check frontend cache first (unless force refresh)
+      // Check cache first (INSTANT load if cached)
       if (!forceRefresh) {
         const cachedProducts = frontendCache.get(cacheKey);
         if (cachedProducts && cachedProducts.length > 0) {
-          console.log('✅ INSTANT: Using cached products from localStorage');
+          console.log('✅ INSTANT: Using cached products');
           setProducts(cachedProducts);
-          setBackgroundLoading(false);
-          toast.success(`✅ Loaded ${cachedProducts.length} products from cache`, { duration: 2000 });
-          
-          // Fetch in background to update cache (silently)
-          setTimeout(() => {
-            productAPI.getAll({ page: 1, limit: 5000 })
-              .then(response => {
-                const productsData = response.data.products || [];
-                const transformedProducts = productsData.map(product => {
-                  const storeInventory = product.inventory?.find(inv => inv.storeId === storeId);
-                  return {
-                    ...product,
-                    quantity: storeInventory?.quantity || 0
-                  };
-                });
-                
-                if (JSON.stringify(transformedProducts) !== JSON.stringify(cachedProducts)) {
-                  console.log('📦 Updated in background');
-                  setProducts(transformedProducts);
-                  frontendCache.set(cacheKey, transformedProducts, 1800000);
-                }
-              })
-              .catch(err => console.error('Background update error:', err));
-          }, 1000);
-          
+          toast.success(`✅ Loaded ${cachedProducts.length} products instantly!`, { duration: 2000 });
           return;
         }
       }
       
-      // FIRST TIME LOAD - Fetch from API
-      console.log('🚀 Starting FIRST TIME product fetch from API...');
-      console.log('📡 Fetching ALL products with inventory for store ID:', storeId);
-      console.log('📡 User store name:', user.assignedStore?.name);
-      console.log('📡 API URL:', `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/products`);
+      // 🚀 STEP 1: Load FIRST 50 products immediately (takes ~5 seconds)
+      console.log('🚀 STEP 1: Loading first 50 products...');
+      const firstBatchResponse = await productAPI.getAll({ page: 1, limit: 50 });
+      const firstBatchData = firstBatchResponse.data.products || [];
+      const totalCount = firstBatchResponse.data.total || firstBatchData.length;
       
-      const response = await productAPI.getAll({ page: 1, limit: 5000 });
+      setTotalProductCount(totalCount);
       
-      console.log('✅ Products response received:', response.data);
-      
-      const productsData = response.data.products || [];
-      
-      // Transform products to include quantity from cashier's store inventory
-      const inventory = productsData.map(product => {
+      // Transform first batch with inventory quantities
+      const firstBatch = firstBatchData.map(product => {
         const storeInventory = product.inventory?.find(inv => inv.storeId === storeId);
         return {
           ...product,
@@ -234,60 +137,81 @@ export default function POS() {
         };
       });
       
-      console.log(`📦 Transformed ${inventory.length} products with quantities`);
+      console.log(`✅ STEP 1 COMPLETE: Loaded first ${firstBatch.length} products!`);
+      console.log(`📊 Total products in system: ${totalCount}`);
       
-      // Check if NO products exist at all
-      if (!inventory || inventory.length === 0) {
-        console.warn(`⚠️  No products found in the system!`);
-        console.warn(`💡 This means the Shopify product sync hasn't been run yet`);
-        
-        setProducts([]); // Set empty array so UI can show emergency sync button
-        setBackgroundLoading(false);
-        
-        toast.error(
-          `No products in system. Click "FORCE SYNC" button below!`,
-          { duration: 10000 }
-        );
+      if (firstBatch.length === 0) {
+        console.warn('⚠️  No products found!');
+        setProducts([]);
+        toast.error('No products in system. Click "FORCE SYNC" button below!', { duration: 10000 });
         return;
       }
       
-      // Log how many products have stock in this store
-      const productsWithStock = inventory.filter(p => p.quantity > 0).length;
-      console.log(`📊 Store "${user.assignedStore?.name}": ${productsWithStock} products with stock, ${inventory.length - productsWithStock} out of stock`);
+      // ⚡ SHOW FIRST 50 PRODUCTS IMMEDIATELY!
+      setProducts(firstBatch);
+      toast.success(`✅ Loaded first ${firstBatch.length} products! Loading more in background...`, { duration: 3000 });
       
-      setProducts(inventory);
-      
-      // Cache the products for 30 minutes
-      frontendCache.set(cacheKey, inventory, 1800000);
-      console.log(`💾 Cached ${inventory.length} products for 30 minutes`);
-      
-      toast.success(`✅ Loaded ${inventory.length} products`, { duration: 2000 });
-      
-    } catch (error) {
-      // NUCLEAR ERROR HANDLING
-      console.error('❌ CRITICAL ERROR loading products:', error);
-      console.error('❌ Error message:', error.message);
-      console.error('❌ Error response:', error.response?.data);
-      console.error('❌ Error stack:', error.stack);
-      
-      // Show specific error message
-      let errorMsg = 'Failed to load products. ';
-      if (error.response?.status === 401) {
-        errorMsg += 'Please login again.';
-        setTimeout(() => router.push('/login'), 2000);
-      } else if (error.response?.status === 404) {
-        errorMsg += 'API endpoint not found. Contact support.';
-      } else if (error.message?.includes('Network')) {
-        errorMsg += 'Network error. Check your connection.';
+      // 📊 STEP 2: Load REMAINING products in background (if more than 50)
+      if (totalCount > 50) {
+        console.log(`📊 STEP 2: Loading remaining ${totalCount - 50} products in background...`);
+        setBackgroundLoading(true);
+        setBgLoadingPercent(Math.round((50 / totalCount) * 100));
+        
+        // Load remaining products in batches of 50
+        const remainingBatches = Math.ceil((totalCount - 50) / 50);
+        let allProducts = [...firstBatch];
+        
+        for (let i = 0; i < remainingBatches; i++) {
+          const page = i + 2; // Start from page 2 (we already loaded page 1)
+          
+          try {
+            const batchResponse = await productAPI.getAll({ page, limit: 50 });
+            const batchData = batchResponse.data.products || [];
+            
+            // Transform batch with inventory
+            const transformedBatch = batchData.map(product => {
+              const storeInventory = product.inventory?.find(inv => inv.storeId === storeId);
+              return {
+                ...product,
+                quantity: storeInventory?.quantity || 0
+              };
+            });
+            
+            allProducts = [...allProducts, ...transformedBatch];
+            
+            // Update progress
+            const progress = Math.round((allProducts.length / totalCount) * 100);
+            setBgLoadingPercent(progress);
+            console.log(`📊 Background loading: ${allProducts.length}/${totalCount} (${progress}%)`);
+            
+            // Update UI with all products loaded so far
+            setProducts(allProducts);
+            
+          } catch (batchError) {
+            console.error(`❌ Error loading batch ${page}:`, batchError);
+          }
+        }
+        
+        console.log(`✅ STEP 2 COMPLETE: Loaded all ${allProducts.length} products!`);
+        setBackgroundLoading(false);
+        setBgLoadingPercent(100);
+        
+        // Cache all products
+        frontendCache.set(cacheKey, allProducts, 1800000);
+        
+        toast.success(`✅ All ${allProducts.length} products loaded!`, { duration: 3000 });
+        
       } else {
-        errorMsg += 'Server error. Use FORCE SYNC button below.';
+        // Less than 50 products total - cache them
+        frontendCache.set(cacheKey, firstBatch, 1800000);
+        console.log(`💾 Cached ${firstBatch.length} products`);
       }
       
-      toast.error(errorMsg, { duration: 10000 });
-      setProducts([]); // Set empty array so UI shows emergency sync
-      
-    } finally {
-      setBackgroundLoading(false); // Always hide background loading indicator
+    } catch (error) {
+      console.error('❌ Error loading products:', error);
+      setProducts([]);
+      setBackgroundLoading(false);
+      toast.error('Failed to load products. Click "FORCE SYNC" button below!', { duration: 10000 });
     }
   };
 
@@ -627,13 +551,34 @@ export default function POS() {
 
   return (
     <Layout title="Point of Sale">
-      {/* NUCLEAR: Non-blocking background loading indicator */}
+      {/* 🚀 Progressive Loading Progress Bar */}
       {backgroundLoading && (
-        <div className="bg-gradient-to-r from-blue-500 to-purple-500 text-white p-3 mb-4 rounded-lg shadow-lg">
-          <div className="flex items-center justify-center gap-3">
-            <RefreshCw className="w-5 h-5 animate-spin" />
-            <p className="text-sm font-semibold">
-              🔥 Loading products in background... Page is ready to use!
+        <div className="bg-gradient-to-r from-blue-500 to-purple-600 text-white p-4 mb-4 rounded-lg shadow-xl">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <RefreshCw className="w-5 h-5 animate-spin" />
+                <p className="text-sm font-bold">
+                  📊 Loading remaining products...
+                </p>
+              </div>
+              <span className="text-xl font-bold">
+                {bgLoadingPercent}%
+              </span>
+            </div>
+            
+            {/* Progress Bar */}
+            <div className="w-full bg-white/20 rounded-full h-3 overflow-hidden">
+              <div 
+                className="h-full bg-white rounded-full transition-all duration-500 ease-out shadow-lg"
+                style={{ width: `${bgLoadingPercent}%` }}
+              >
+                <div className="h-full w-full bg-gradient-to-r from-white to-blue-100 animate-pulse"></div>
+              </div>
+            </div>
+            
+            <p className="text-xs text-white/80 text-center">
+              {products.length} of {totalProductCount} products loaded • You can start using the page now!
             </p>
           </div>
         </div>
