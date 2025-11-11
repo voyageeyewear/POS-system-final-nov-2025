@@ -52,25 +52,42 @@ export default function POS() {
         loadProducts();
         checkSyncStatus();
       } else {
-        // 🔥 AUTO-REFRESH: User has no store, refresh data from server
-        console.log('⚠️  No assigned store found. Refreshing user data from server...');
-        toast.loading('🔄 Checking for store assignment...', { id: 'refresh-user' });
+        // 🔥🔥🔥 ULTRA AGGRESSIVE: Auto-run complete-setup if no store!
+        console.log('⚠️  NO STORE ASSIGNED! Running auto-setup...');
+        toast.loading('🔥 Auto-setup: Creating data and assigning store...', { id: 'auto-setup' });
         
-        refreshUser()
-          .then((updatedUser) => {
-            if (updatedUser.assignedStore) {
-              console.log('✅ Store assignment found:', updatedUser.assignedStore.name);
-              toast.success(`✅ Store assigned: ${updatedUser.assignedStore.name}`, { id: 'refresh-user' });
-              // loadProducts will be called automatically when user updates
-            } else {
-              console.warn('❌ Still no store assigned after refresh');
-              toast.error('❌ No store assigned. Contact admin to assign a store.', { id: 'refresh-user', duration: 10000 });
-            }
-          })
-          .catch((error) => {
-            console.error('❌ Error refreshing user:', error);
-            toast.error('❌ Could not refresh user data. Try logging out and in again.', { id: 'refresh-user', duration: 10000 });
-          });
+        // Call complete-setup endpoint directly
+        fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://pos-system-final-nov-2025-production.up.railway.app/api'}/data-management/complete-setup`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'application/json'
+          }
+        })
+        .then(r => r.json())
+        .then(data => {
+          console.log('✅ AUTO-SETUP RESULT:', data);
+          
+          if (data.message && data.message.includes('SUCCESS')) {
+            toast.success(`✅ Setup complete! Store: ${data.user.assignedStore?.name}`, { id: 'auto-setup' });
+            
+            // Update user in localStorage
+            localStorage.setItem('user', JSON.stringify(data.user));
+            
+            // Force page reload to load products
+            setTimeout(() => {
+              console.log('🔄 Reloading page to load products...');
+              window.location.reload();
+            }, 2000);
+          } else {
+            console.error('❌ AUTO-SETUP FAILED:', data);
+            toast.error('❌ Auto-setup failed. Click "FORCE SYNC" button below.', { id: 'auto-setup', duration: 10000 });
+          }
+        })
+        .catch(error => {
+          console.error('❌ AUTO-SETUP ERROR:', error);
+          toast.error('❌ Network error. Click "FORCE SYNC" button below.', { id: 'auto-setup', duration: 10000 });
+        });
       }
     }
   }, [user, loading, router]);
