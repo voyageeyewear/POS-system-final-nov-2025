@@ -46,49 +46,10 @@ export default function POS() {
     } else if (user?.role === 'admin') {
       router.push('/admin');
     } else if (user && user.role === 'cashier') {
-      // Check if user has assigned store
-      if (user.assignedStore) {
-        console.log('🚀 PROGRESSIVE LOADING: First 50 products in ~5 seconds!');
-        loadProducts();
-        checkSyncStatus();
-      } else {
-        // 🔥🔥🔥 ULTRA AGGRESSIVE: Auto-run complete-setup if no store!
-        console.log('⚠️  NO STORE ASSIGNED! Running auto-setup...');
-        toast.loading('🔥 Auto-setup: Creating data and assigning store...', { id: 'auto-setup' });
-        
-        // Call complete-setup endpoint directly
-        fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://pos-system-final-nov-2025-production.up.railway.app/api'}/data-management/complete-setup`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
-            'Content-Type': 'application/json'
-          }
-        })
-        .then(r => r.json())
-        .then(data => {
-          console.log('✅ AUTO-SETUP RESULT:', data);
-          
-          if (data.message && data.message.includes('SUCCESS')) {
-            toast.success(`✅ Setup complete! Store: ${data.user.assignedStore?.name}`, { id: 'auto-setup' });
-            
-            // Update user in localStorage
-            localStorage.setItem('user', JSON.stringify(data.user));
-            
-            // Force page reload to load products
-            setTimeout(() => {
-              console.log('🔄 Reloading page to load products...');
-              window.location.reload();
-            }, 2000);
-          } else {
-            console.error('❌ AUTO-SETUP FAILED:', data);
-            toast.error('❌ Auto-setup failed. Click "FORCE SYNC" button below.', { id: 'auto-setup', duration: 10000 });
-          }
-        })
-        .catch(error => {
-          console.error('❌ AUTO-SETUP ERROR:', error);
-          toast.error('❌ Network error. Click "FORCE SYNC" button below.', { id: 'auto-setup', duration: 10000 });
-        });
-      }
+      // 🚀 SIMPLE: Just load products - EXACTLY like admin does!
+      console.log('🚀 Loading products - SIMPLE approach!');
+      loadProducts();
+      checkSyncStatus();
     }
   }, [user, loading, router]);
 
@@ -116,56 +77,29 @@ export default function POS() {
     }
   };
 
-  const loadProducts = async (forceRefresh = false) => {
-    console.log('%c🚀 PROGRESSIVE LOADING STARTED!', 'background: #0066ff; color: #fff; font-size: 16px; padding: 5px;');
-    console.log('⚡ Step 1: Load first 50 products (5 sec)');
-    console.log('📊 Step 2: Load remaining products in background');
+  const loadProducts = async (page = 1) => {
+    console.log('🚀 Loading products - SIMPLE approach (like admin)!');
     
     try {
       if (!user) {
-        console.error('❌ NO USER OBJECT!');
         toast.error('User not found. Please login again.');
         setTimeout(() => router.push('/login'), 2000);
         return;
       }
       
-      if (!user.assignedStore) {
-        console.error('❌ NO ASSIGNED STORE!');
-        toast.error('No store assigned. Contact admin.');
-        return;
-      }
+      // 🚀 SUPER SIMPLE: Just load ALL products at once (like admin does)
+      const response = await productAPI.getAll({ page, limit: 5000 }); // Load up to 5000 products
+      const productsData = response.data.products || [];
+      const pagination = response.data.pagination;
       
+      console.log(`✅ Loaded ${productsData.length} products!`);
+      console.log(`📊 Total: ${pagination?.total || productsData.length} products`);
+      
+      // Get store ID for inventory filtering
       const storeId = user.assignedStore?.id || user.assignedStore?._id;
       
-      if (!storeId) {
-        toast.error('❌ No store assigned to your account! Contact admin.', { duration: 5000 });
-        console.error('❌ No store ID found for user:', user);
-        return;
-      }
-
-      const cacheKey = `products_all_stores`;
-      
-      // Check cache first (INSTANT load if cached)
-      if (!forceRefresh) {
-        const cachedProducts = frontendCache.get(cacheKey);
-        if (cachedProducts && cachedProducts.length > 0) {
-          console.log('✅ INSTANT: Using cached products');
-          setProducts(cachedProducts);
-          toast.success(`✅ Loaded ${cachedProducts.length} products instantly!`, { duration: 2000 });
-          return;
-        }
-      }
-      
-      // 🚀 STEP 1: Load FIRST 50 products immediately (takes ~5 seconds)
-      console.log('🚀 STEP 1: Loading first 50 products...');
-      const firstBatchResponse = await productAPI.getAll({ page: 1, limit: 50 });
-      const firstBatchData = firstBatchResponse.data.products || [];
-      const totalCount = firstBatchResponse.data.pagination?.total || firstBatchData.length;
-      
-      setTotalProductCount(totalCount);
-      
-      // Transform first batch with inventory quantities
-      const firstBatch = firstBatchData.map(product => {
+      // Transform products with inventory quantities
+      const transformedProducts = productsData.map(product => {
         const storeInventory = product.inventory?.find(inv => inv.storeId === storeId);
         return {
           ...product,
@@ -173,81 +107,22 @@ export default function POS() {
         };
       });
       
-      console.log(`✅ STEP 1 COMPLETE: Loaded first ${firstBatch.length} products!`);
-      console.log(`📊 Total products in system: ${totalCount}`);
+      setProducts(transformedProducts);
+      setTotalProductCount(pagination?.total || transformedProducts.length);
       
-      if (firstBatch.length === 0) {
-        console.warn('⚠️  No products found!');
-        setProducts([]);
-        toast.error('No products in system. Click "FORCE SYNC" button below!', { duration: 10000 });
-        return;
-      }
+      // Cache products
+      frontendCache.set('products_all_stores', transformedProducts, 1800000);
       
-      // ⚡ SHOW FIRST 50 PRODUCTS IMMEDIATELY!
-      setProducts(firstBatch);
-      toast.success(`✅ Loaded first ${firstBatch.length} products! Loading more in background...`, { duration: 3000 });
-      
-      // 📊 STEP 2: Load REMAINING products in background (if more than 50)
-      if (totalCount > 50) {
-        console.log(`📊 STEP 2: Loading remaining ${totalCount - 50} products in background...`);
-        setBackgroundLoading(true);
-        setBgLoadingPercent(Math.round((50 / totalCount) * 100));
-        
-        // Load remaining products in batches of 50
-        const remainingBatches = Math.ceil((totalCount - 50) / 50);
-        let allProducts = [...firstBatch];
-        
-        for (let i = 0; i < remainingBatches; i++) {
-          const page = i + 2; // Start from page 2 (we already loaded page 1)
-          
-          try {
-            const batchResponse = await productAPI.getAll({ page, limit: 50 });
-            const batchData = batchResponse.data.products || [];
-            
-            // Transform batch with inventory
-            const transformedBatch = batchData.map(product => {
-              const storeInventory = product.inventory?.find(inv => inv.storeId === storeId);
-              return {
-                ...product,
-                quantity: storeInventory?.quantity || 0
-              };
-            });
-            
-            allProducts = [...allProducts, ...transformedBatch];
-            
-            // Update progress
-            const progress = Math.round((allProducts.length / totalCount) * 100);
-            setBgLoadingPercent(progress);
-            console.log(`📊 Background loading: ${allProducts.length}/${totalCount} (${progress}%)`);
-            
-            // Update UI with all products loaded so far
-            setProducts(allProducts);
-            
-          } catch (batchError) {
-            console.error(`❌ Error loading batch ${page}:`, batchError);
-          }
-        }
-        
-        console.log(`✅ STEP 2 COMPLETE: Loaded all ${allProducts.length} products!`);
-        setBackgroundLoading(false);
-        setBgLoadingPercent(100);
-        
-        // Cache all products
-        frontendCache.set(cacheKey, allProducts, 1800000);
-        
-        toast.success(`✅ All ${allProducts.length} products loaded!`, { duration: 3000 });
-        
+      if (transformedProducts.length === 0) {
+        toast.error('No products found. Click "FORCE SYNC" to sync from Shopify.', { duration: 5000 });
       } else {
-        // Less than 50 products total - cache them
-        frontendCache.set(cacheKey, firstBatch, 1800000);
-        console.log(`💾 Cached ${firstBatch.length} products`);
+        toast.success(`✅ Loaded ${transformedProducts.length} products!`, { duration: 2000 });
       }
       
     } catch (error) {
       console.error('❌ Error loading products:', error);
       setProducts([]);
-      setBackgroundLoading(false);
-      toast.error('Failed to load products. Click "FORCE SYNC" button below!', { duration: 10000 });
+      toast.error('Failed to load products. Try refreshing the page.', { duration: 5000 });
     }
   };
 
