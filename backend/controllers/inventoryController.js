@@ -164,6 +164,7 @@ exports.getInventorySummary = async (req, res) => {
     };
 
     // Initialize store stats
+    const storeMap = new Map();
     for (const store of stores) {
       storeMap.set(store.id, {
         storeId: store.id,

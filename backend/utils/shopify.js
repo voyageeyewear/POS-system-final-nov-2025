@@ -41,7 +41,9 @@ class ShopifyService {
 
         const params = { 
           limit,
-          since_id: sinceId
+          since_id: sinceId,
+          // Explicitly request all variant fields including inventory_item_id
+          fields: 'id,title,body_html,product_type,tags,image,variants'
         };
 
         const response = await client.get('/products.json', { params });
@@ -102,6 +104,18 @@ class ShopifyService {
     } catch (error) {
       console.error('Shopify API Error:', error.response?.data || error.message);
       throw new Error('Failed to fetch product from Shopify');
+    }
+  }
+
+  // Get variant details (with inventory_item_id)
+  async getVariant(variantId) {
+    try {
+      const client = this.getClient();
+      const response = await client.get(`/variants/${variantId}.json`);
+      return response.data.variant;
+    } catch (error) {
+      console.error('Shopify Variant API Error:', error.response?.data || error.message);
+      throw new Error('Failed to fetch variant from Shopify');
     }
   }
 

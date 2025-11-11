@@ -477,8 +477,26 @@ exports.refreshData = async (req, res) => {
     for (const shopifyProduct of shopifyProducts) {
       for (const variant of shopifyProduct.variants) {
         try {
+          // 🔥 FIX: If inventory_item_id is missing, fetch it from variant endpoint
+          let inventoryItemId = variant.inventory_item_id;
+          
+          if (!inventoryItemId) {
+            console.log(`🔍 Fetching missing inventory_item_id for variant ${variant.id}...`);
+            try {
+              const fullVariant = await shopifyService.getVariant(variant.id);
+              inventoryItemId = fullVariant.inventory_item_id;
+              if (inventoryItemId) {
+                console.log(`✅ Found inventory_item_id: ${inventoryItemId}`);
+              } else {
+                console.warn(`⚠️  Variant ${variant.id} has no inventory tracking enabled in Shopify!`);
+              }
+            } catch (variantError) {
+              console.error(`❌ Failed to fetch variant ${variant.id}:`, variantError.message);
+            }
+          }
+          
           // 🔥 DIAGNOSTIC: Track inventory IDs
-          if (variant.inventory_item_id) {
+          if (inventoryItemId) {
             withInventoryId++;
           } else {
             withoutInventoryId++;
@@ -496,7 +514,7 @@ exports.refreshData = async (req, res) => {
             image: shopifyProduct.image?.src || '',
             shopifyProductId: shopifyProduct.id.toString(),
             shopifyVariantId: variant.id.toString(),
-            inventoryItemId: variant.inventory_item_id ? variant.inventory_item_id.toString() : null,
+            inventoryItemId: inventoryItemId ? inventoryItemId.toString() : null,
             taxRate: shopifyProduct.product_type?.toLowerCase().includes('sunglass') ? 18 : 5,
             isActive: true
           };
@@ -655,6 +673,49 @@ exports.refreshData = async (req, res) => {
     }
     
     console.log(`✅ Step 3/3 Complete: ${syncResults.inventory.updated} inventory records updated`);
+    
+    // 🔥 FIX: Create inventory records with 0 quantity for products without inventory_item_id
+    console.log('🔄 Creating inventory records for products without inventory tracking...');
+    const productsWithoutInventoryId = await productRepo
+      .createQueryBuilder('product')
+      .where('product.inventoryItemId IS NULL')
+      .andWhere('product.isActive = :isActive', { isActive: true })
+      .getMany();
+    
+    if (productsWithoutInventoryId.length > 0) {
+      console.log(`📦 Found ${productsWithoutInventoryId.length} products without inventory tracking`);
+      let createdZeroInventory = 0;
+      
+      for (const product of productsWithoutInventoryId) {
+        for (const store of createdStores) {
+          try {
+            // Check if inventory record already exists
+            let inventory = await inventoryRepo.findOne({
+              where: {
+                productId: product.id,
+                storeId: store.id
+              }
+            });
+            
+            if (!inventory) {
+              // Create with 0 quantity
+              inventory = inventoryRepo.create({
+                productId: product.id,
+                storeId: store.id,
+                quantity: 0
+              });
+              await inventoryRepo.save(inventory);
+              createdZeroInventory++;
+            }
+          } catch (error) {
+            console.error(`❌ Error creating zero inventory for ${product.name}:`, error.message);
+          }
+        }
+      }
+      
+      console.log(`✅ Created ${createdZeroInventory} zero-quantity inventory records`);
+    }
+    
     console.log(`🎉 Full sync completed successfully!`);
 
     // Clear all inventory cache since data has been refreshed
