@@ -14,8 +14,10 @@ const generateToken = (userId) => {
 // Register new user (Admin only)
 exports.register = async (req, res) => {
   try {
-    const { name, email, password, role, assignedStore } = req.body;
+    const { name, email, password, role, assignedStore, assignedStoreId } = req.body;
     const userRepo = getUserRepository();
+
+    console.log('📝 Register request body:', req.body);
 
     // Check if user already exists
     const existingUser = await userRepo.findOne({ where: { email: email.toLowerCase() } });
@@ -26,18 +28,29 @@ exports.register = async (req, res) => {
     // Hash password
     const hashedPassword = await UserMethods.hashPassword(password);
 
+    // Accept both assignedStoreId and assignedStore for backwards compatibility
+    const storeId = assignedStoreId || assignedStore || null;
+
     const user = userRepo.create({
       name,
       email: email.toLowerCase(),
       password: hashedPassword,
       role: role || 'cashier',
-      assignedStoreId: assignedStore || null
+      assignedStoreId: storeId
     });
 
     await userRepo.save(user);
     
+    console.log('✅ User created with store ID:', storeId);
+    
+    // Reload user with relations to get assignedStore
+    const savedUser = await userRepo.findOne({
+      where: { id: user.id },
+      relations: ['assignedStore']
+    });
+    
     // Return user without password
-    const userResponse = UserMethods.toJSON(user);
+    const userResponse = UserMethods.toJSON(savedUser);
     
     res.status(201).json({
       message: 'User created successfully',

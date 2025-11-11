@@ -58,8 +58,10 @@ export default function UsersManagement() {
         name: formData.name,
         email: formData.email,
         role: formData.role,
-        assignedStore: formData.assignedStore || null,
+        assignedStoreId: formData.assignedStore ? parseInt(formData.assignedStore) : null, // FIX: Use assignedStoreId
       };
+
+      console.log('🔄 Submitting user data:', userData);
 
       if (editingUser) {
         await authAPI.updateUser(editingUser.id || editingUser._id, userData);
@@ -75,6 +77,7 @@ export default function UsersManagement() {
       resetForm();
       loadData();
     } catch (error) {
+      console.error('❌ Error updating user:', error);
       toast.error(error.response?.data?.error || 'Operation failed');
     }
   };
