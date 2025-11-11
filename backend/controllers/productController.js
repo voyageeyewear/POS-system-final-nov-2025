@@ -92,11 +92,12 @@ exports.getAllProducts = async (req, res) => {
     const total = await totalQuery.getCount();
     console.log(`📊 Found ${total} products matching filters`);
 
-    // Get paginated products
+    // Get paginated products - Sort by inventory quantity (in stock first)
     const products = await queryBuilder
       .skip(skip)
       .take(limitNum)
-      .orderBy('product.createdAt', 'DESC')
+      .orderBy('inventory.quantity', 'DESC')
+      .addOrderBy('product.createdAt', 'DESC')
       .getMany();
 
     // Transform products to match frontend expectations
@@ -127,7 +128,7 @@ exports.getAllProducts = async (req, res) => {
       };
     });
 
-    console.log(`✅ Returning ${transformedProducts.length} products to ${user?.role || 'user'}`);
+    console.log(`✅ Returning ${transformedProducts.length} products to ${user?.role || 'user'} (sorted by stock)`);
 
     res.json({ 
       products: transformedProducts,
