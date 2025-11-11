@@ -169,5 +169,107 @@ router.post('/fix-inventory-item-ids', authenticate, async (req, res) => {
   }
 });
 
+// COMPARE INVENTORY: Shopify vs Database for specific SKU
+router.get('/compare-inventory/:sku', authenticate, async (req, res) => {
+  try {
+    const { sku } = req.params;
+    console.log(`🔍 Comparing inventory for SKU: ${sku}`);
+    
+    const productRepo = getProductRepository();
+    const storeRepo = getStoreRepository();
+    const inventoryRepo = getInventoryRepository();
+    
+    // Find product in database
+    const dbProduct = await productRepo.findOne({ 
+      where: { sku },
+      relations: ['inventory', 'inventory.store']
+    });
+    
+    if (!dbProduct) {
+      return res.status(404).json({ error: `Product with SKU ${sku} not found in database` });
+    }
+    
+    // Get product from Shopify
+    const shopifyProducts = await shopifyService.getProducts();
+    const shopifyProduct = shopifyProducts.find(p => 
+      p.variants.some(v => v.sku === sku)
+    );
+    
+    if (!shopifyProduct) {
+      return res.status(404).json({ error: `Product with SKU ${sku} not found in Shopify` });
+    }
+    
+    const variant = shopifyProduct.variants.find(v => v.sku === sku);
+    
+    // Get inventory from Shopify for this product
+    let shopifyInventory = [];
+    let shopifyTotal = 0;
+    
+    if (variant.inventory_item_id) {
+      const inventoryLevels = await shopifyService.getInventoryLevels([variant.inventory_item_id]);
+      shopifyInventory = inventoryLevels.map(level => ({
+        locationId: level.location_id,
+        locationName: level.location_name || 'Unknown',
+        quantity: level.available || 0
+      }));
+      shopifyTotal = inventoryLevels.reduce((sum, level) => sum + (level.available || 0), 0);
+    }
+    
+    // Get all Shopify locations
+    const shopifyLocations = await shopifyService.getLocations();
+    
+    // Get all database stores
+    const dbStores = await storeRepo.find();
+    
+    // Calculate database total
+    const dbTotal = dbProduct.inventory?.reduce((sum, inv) => sum + parseInt(inv.quantity || 0), 0) || 0;
+    
+    // Find missing locations
+    const shopifyLocationIds = shopifyLocations.map(l => l.id.toString());
+    const dbLocationIds = dbStores.map(s => s.shopifyLocationId);
+    const missingInDb = shopifyLocationIds.filter(id => !dbLocationIds.includes(id));
+    
+    res.json({
+      product: {
+        name: dbProduct.name,
+        sku: dbProduct.sku,
+        inventoryItemId: dbProduct.inventoryItemId
+      },
+      shopify: {
+        totalInventory: shopifyTotal,
+        locations: shopifyInventory,
+        allLocations: shopifyLocations.map(l => ({
+          id: l.id,
+          name: l.name,
+          active: l.active
+        }))
+      },
+      database: {
+        totalInventory: dbTotal,
+        locations: dbProduct.inventory?.map(inv => ({
+          storeId: inv.storeId,
+          storeName: inv.store?.name || 'Unknown',
+          shopifyLocationId: inv.store?.shopifyLocationId,
+          quantity: parseInt(inv.quantity || 0)
+        })) || [],
+        allStores: dbStores.map(s => ({
+          id: s.id,
+          name: s.name,
+          shopifyLocationId: s.shopifyLocationId
+        }))
+      },
+      discrepancy: {
+        difference: shopifyTotal - dbTotal,
+        missingLocationsInDb: missingInDb.length > 0 ? shopifyLocations.filter(l => missingInDb.includes(l.id.toString())).map(l => l.name) : [],
+        message: shopifyTotal !== dbTotal ? `⚠️ Mismatch! Shopify: ${shopifyTotal}, Database: ${dbTotal}` : '✅ Match!'
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ COMPARE ERROR:', error);
+    res.status(500).json({ error: error.message, stack: error.stack });
+  }
+});
+
 module.exports = router;
 
