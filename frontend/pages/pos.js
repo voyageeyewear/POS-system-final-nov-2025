@@ -27,12 +27,15 @@ export default function POS() {
   const [loadingMessage, setLoadingMessage] = useState('Initializing...');
   const [processing, setProcessing] = useState(false);
   const [syncStatus, setSyncStatus] = useState(null);
+  const [loadingTimeout, setLoadingTimeout] = useState(false);
   const ITEMS_PER_PAGE = 50; // AGGRESSIVE: Show 50 products per page
+  const LOADING_TIMEOUT_MS = 15000; // 15 seconds max loading time
 
-  // VERSION CHECK - v4.0 - AGGRESSIVE PAGINATION (50 per page)
+  // VERSION CHECK - v5.0 - AGGRESSIVE TIMEOUT & AUTO-RECOVERY
   useEffect(() => {
-    console.log('%c✅ POS VERSION 4.0 LOADED - 50 PRODUCTS PER PAGE + ENHANCED UI', 'background: #00ff00; color: #000; font-size: 20px; padding: 10px;');
-    console.log('📊 Features: 50 items per page, sticky status bar, enhanced pagination controls');
+    console.log('%c✅ POS VERSION 5.0 - AGGRESSIVE TIMEOUT & AUTO-RECOVERY', 'background: #00ff00; color: #000; font-size: 20px; padding: 10px;');
+    console.log('⚡ NEW: 15sec auto-timeout, 5sec skip button, better error handling');
+    console.log('📊 Features: 50 items per page, sticky status bar, enhanced pagination');
   }, []);
 
   useEffect(() => {
@@ -41,8 +44,32 @@ export default function POS() {
     } else if (user?.role === 'admin') {
       router.push('/admin');
     } else if (user?.assignedStore) {
+      console.log('🚀 AGGRESSIVE: Starting product load with timeout protection');
+      
+      // Set timeout to force-close loading after 15 seconds
+      const timeoutId = setTimeout(() => {
+        console.warn('⏱️ TIMEOUT: Loading took too long, forcing close');
+        setLoadingProducts(false);
+        setLoadingProgress(0);
+        setLoadingTimeout(true);
+        toast.error('Loading timed out. Click "FORCE SYNC" button below.', { duration: 10000 });
+      }, LOADING_TIMEOUT_MS);
+      
+      // Also show "Skip" option after 5 seconds
+      const skipTimeoutId = setTimeout(() => {
+        if (loadingProducts) {
+          setLoadingTimeout(true);
+        }
+      }, 5000);
+      
       loadProducts();
-      checkSyncStatus(); // Check initial sync status
+      checkSyncStatus();
+      
+      // Cleanup timeouts
+      return () => {
+        clearTimeout(timeoutId);
+        clearTimeout(skipTimeoutId);
+      };
     }
   }, [user, loading, router]);
 
@@ -71,16 +98,35 @@ export default function POS() {
   };
 
   const loadProducts = async (forceRefresh = false) => {
+    console.log('%c🚀 LOADPRODUCTS CALLED!', 'background: #ff0000; color: #fff; font-size: 16px; padding: 5px;');
+    console.log('⏰ Timestamp:', new Date().toISOString());
+    console.log('🔄 Force refresh:', forceRefresh);
+    
     let progressInterval = null;
     
     try {
       setLoadingProducts(true);
-      setLoadingProgress(0);
-      setLoadingMessage('Checking cache...');
+      setLoadingProgress(5); // IMMEDIATELY set to 5% to show it's working
+      setLoadingMessage('Initializing...');
       
       console.log('🔍 User object:', user);
-      console.log('🔍 User assignedStore:', user.assignedStore);
-      console.log('🔍 Store ID to use:', user.assignedStore?.id || user.assignedStore?._id);
+      console.log('🔍 User assignedStore:', user?.assignedStore);
+      console.log('🔍 Store ID to use:', user?.assignedStore?.id || user?.assignedStore?._id);
+      
+      if (!user) {
+        console.error('❌ NO USER OBJECT!');
+        setLoadingProducts(false);
+        toast.error('User not found. Please login again.');
+        setTimeout(() => router.push('/login'), 2000);
+        return;
+      }
+      
+      if (!user.assignedStore) {
+        console.error('❌ NO ASSIGNED STORE!');
+        setLoadingProducts(false);
+        toast.error('No store assigned. Contact admin.');
+        return;
+      }
       
       const storeId = user.assignedStore?.id || user.assignedStore?._id;
       
@@ -490,7 +536,7 @@ export default function POS() {
     toast.error('Loading cancelled. You may not see all products.', { duration: 3000 });
   };
 
-  // Loading Overlay Component
+  // Loading Overlay Component - AGGRESSIVE: Auto-closes after timeout
   const LoadingOverlay = () => (
     <div className="fixed inset-0 bg-white bg-opacity-95 z-50 flex items-center justify-center">
       {/* Close Button */}
@@ -511,7 +557,11 @@ export default function POS() {
             {loadingMessage}
           </h2>
           <p className="text-gray-600 text-sm">
-            {loadingProgress < 100 ? 'Please wait while we load your products...' : 'Almost ready!'}
+            {loadingTimeout 
+              ? '⚠️ Taking longer than expected...' 
+              : loadingProgress < 100 
+                ? 'Please wait while we load your products...' 
+                : 'Almost ready!'}
           </p>
         </div>
         
@@ -541,12 +591,32 @@ export default function POS() {
           </div>
         </div>
         
+        {/* AGGRESSIVE: Show skip button after timeout */}
+        {loadingTimeout && (
+          <div className="mt-6 p-4 bg-red-50 rounded-lg border-2 border-red-300 animate-pulse">
+            <p className="text-sm text-red-700 font-semibold text-center mb-3">
+              ⚠️ Loading is taking too long!
+            </p>
+            <button
+              onClick={handleCancelLoading}
+              className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg transition shadow-lg text-lg"
+            >
+              ⚡ SKIP & FORCE SYNC NOW
+            </button>
+            <p className="text-xs text-red-600 text-center mt-2">
+              Click above to close loading and use emergency sync
+            </p>
+          </div>
+        )}
+        
         {/* Info Text */}
-        <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-100">
-          <p className="text-xs text-blue-600 text-center">
-            💡 <strong>First time?</strong> This might take a moment. Next time will be instant!
-          </p>
-        </div>
+        {!loadingTimeout && (
+          <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-100">
+            <p className="text-xs text-blue-600 text-center">
+              💡 <strong>First time?</strong> This might take a moment. Next time will be instant!
+            </p>
+          </div>
+        )}
 
         {/* Cancel Button (alternative to X button) */}
         <div className="mt-4 text-center">
