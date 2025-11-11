@@ -684,45 +684,20 @@ export default function POS() {
             </div>
           </div>
 
-          {/* AGGRESSIVE: Products Counter & Status Bar */}
+          {/* Product Stats - Compact */}
           {products.length > 0 && (
-            <div className="sticky top-0 z-30 bg-gradient-to-r from-green-50 to-blue-50 border-2 border-green-300 rounded-lg shadow-md p-4 mb-4">
-              <div className="flex items-center justify-between flex-wrap gap-3">
-                {/* Total Products Badge */}
+            <div className="bg-white border border-gray-200 rounded-lg px-4 py-2 mb-3 shadow-sm">
+              <div className="flex items-center justify-between flex-wrap gap-2 text-sm text-gray-600">
                 <div className="flex items-center gap-3">
-                  <div className="bg-green-500 text-white px-4 py-2 rounded-lg shadow-md">
-                    <p className="text-xs font-bold">TOTAL PRODUCTS</p>
-                    <p className="text-2xl font-black">{products.length}</p>
-                  </div>
-                  
-                  <div className="bg-white px-4 py-2 rounded-lg shadow-sm border-2 border-blue-200">
-                    <p className="text-xs text-gray-500 font-medium">Currently Showing</p>
-                    <p className="text-lg font-bold text-gray-800">
-                      {startIndex + 1}-{Math.min(endIndex, filteredProducts.length)}
-                    </p>
-                  </div>
-                  
-                  {totalPages > 1 && (
-                    <div className="bg-blue-500 text-white px-4 py-2 rounded-lg shadow-md">
-                      <p className="text-xs font-bold">PAGE</p>
-                      <p className="text-2xl font-black">{currentPage}/{totalPages}</p>
-                    </div>
-                  )}
+                  <span><span className="font-semibold text-gray-900">{products.length}</span> products</span>
+                  <span className="text-gray-300">•</span>
+                  <span><span className="font-semibold text-green-600">{products.filter(p => p.quantity > 0).length}</span> in stock</span>
+                  <span className="text-gray-300">•</span>
+                  <span><span className="font-semibold text-red-600">{products.filter(p => p.quantity === 0).length}</span> out of stock</span>
                 </div>
-                
-                {/* Quick Stats */}
-                <div className="flex items-center gap-2">
-                  <div className="bg-white px-3 py-1.5 rounded-lg shadow-sm border border-gray-200">
-                    <p className="text-xs text-gray-600">
-                      <span className="font-bold text-green-600">{products.filter(p => p.quantity > 0).length}</span> in stock
-                    </p>
-                  </div>
-                  <div className="bg-white px-3 py-1.5 rounded-lg shadow-sm border border-gray-200">
-                    <p className="text-xs text-gray-600">
-                      <span className="font-bold text-red-600">{products.filter(p => p.quantity === 0).length}</span> out of stock
-                    </p>
-                  </div>
-                </div>
+                {totalPages > 1 && (
+                  <span className="text-gray-500">Page <span className="font-semibold text-gray-900">{currentPage}/{totalPages}</span></span>
+                )}
               </div>
             </div>
           )}
