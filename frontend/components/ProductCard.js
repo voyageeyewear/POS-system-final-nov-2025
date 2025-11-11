@@ -2,16 +2,28 @@ import { Check, Package, Minus } from 'lucide-react';
 
 export default function ProductCard({ product, isSelected, selectionCount = 0, onToggle, onRemove }) {
   
+  const isOutOfStock = product.quantity === 0;
+  
   const handleRemove = (e) => {
     e.stopPropagation(); // Prevent triggering onToggle
     onRemove(product);
   };
+  
+  const handleClick = () => {
+    if (!isOutOfStock) {
+      onToggle(product);
+    }
+  };
 
   return (
     <div
-      onClick={() => onToggle(product)}
-      className={`bg-white rounded-lg shadow-sm border-2 transition w-full h-auto cursor-pointer relative ${
-        isSelected ? 'border-primary-500 bg-primary-50' : 'border-gray-200 hover:shadow-md'
+      onClick={handleClick}
+      className={`bg-white rounded-lg shadow-sm border-2 transition w-full h-auto relative ${
+        isOutOfStock 
+          ? 'border-gray-200 opacity-60 cursor-not-allowed' 
+          : isSelected 
+            ? 'border-primary-500 bg-primary-50 cursor-pointer' 
+            : 'border-gray-200 hover:shadow-md cursor-pointer'
       }`}
     >
       {/* Product Image */}
@@ -20,11 +32,20 @@ export default function ProductCard({ product, isSelected, selectionCount = 0, o
           <img
             src={product.image}
             alt={product.name}
-            className="w-full h-full object-cover"
+            className={`w-full h-full object-cover ${isOutOfStock ? 'grayscale' : ''}`}
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
             <Package className="w-8 h-8 text-gray-300" />
+          </div>
+        )}
+        
+        {/* Out of Stock Overlay */}
+        {isOutOfStock && (
+          <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+            <span className="bg-red-500 text-white px-3 py-1 rounded-full text-xs font-bold">
+              Out of Stock
+            </span>
           </div>
         )}
         
@@ -37,7 +58,7 @@ export default function ProductCard({ product, isSelected, selectionCount = 0, o
               ? 'bg-yellow-100 text-yellow-800'
               : 'bg-red-100 text-red-800'
           }`}>
-            {product.quantity} in stock
+            {product.quantity > 0 ? `${product.quantity} in stock` : 'Not available'}
           </span>
         </div>
         

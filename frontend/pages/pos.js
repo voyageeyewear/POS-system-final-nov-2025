@@ -5,7 +5,7 @@ import Layout from '../components/Layout';
 import ProductCard from '../components/ProductCard';
 import CartItem from '../components/CartItem';
 import CustomerModal from '../components/CustomerModal';
-import { storeAPI, saleAPI, authAPI } from '../utils/api';
+import { storeAPI, saleAPI, authAPI, productAPI } from '../utils/api';
 import { Search, ShoppingCart, CreditCard, Receipt, RefreshCw, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import frontendCache from '../utils/cache';
@@ -88,7 +88,7 @@ export default function POS() {
         return;
       }
 
-      const cacheKey = `inventory_store_${storeId}`;
+      const cacheKey = `products_all_stores`;
       
       // Check frontend cache first (unless force refresh)
       if (!forceRefresh) {
@@ -107,12 +107,22 @@ export default function POS() {
           
           // Fetch in background to update cache
           setTimeout(() => {
-            storeAPI.getInventory(storeId)
+            productAPI.getAll({ page: 1, limit: 5000 })
               .then(response => {
-                if (JSON.stringify(response.data.inventory) !== JSON.stringify(cachedProducts)) {
+                const productsData = response.data.products || [];
+                // Transform to include inventory as quantity field
+                const transformedProducts = productsData.map(product => {
+                  const storeInventory = product.inventory?.find(inv => inv.storeId === storeId);
+                  return {
+                    ...product,
+                    quantity: storeInventory?.quantity || 0
+                  };
+                });
+                
+                if (JSON.stringify(transformedProducts) !== JSON.stringify(cachedProducts)) {
                   console.log('📦 Products updated in background');
-                  setProducts(response.data.inventory);
-                  frontendCache.set(cacheKey, response.data.inventory, 1800000); // 30 min
+                  setProducts(transformedProducts);
+                  frontendCache.set(cacheKey, transformedProducts, 1800000); // 30 min
                   toast('🔄 Inventory updated in background', { duration: 2000 });
                 }
               })
@@ -137,38 +147,50 @@ export default function POS() {
         });
       }, 200);
       
-      setLoadingMessage('Fetching inventory data...');
-      console.log('📡 Fetching inventory for store ID:', storeId);
+      setLoadingMessage('Fetching all products...');
+      console.log('📡 Fetching ALL products with inventory for store ID:', storeId);
       console.log('📡 User store name:', user.assignedStore?.name);
       
-      const response = await storeAPI.getInventory(storeId);
+      const response = await productAPI.getAll({ page: 1, limit: 5000 });
       
       clearInterval(progressInterval);
       setLoadingProgress(90);
       setLoadingMessage('Processing products...');
       
-      console.log('✅ Inventory response:', response.data);
+      console.log('✅ Products response:', response.data);
       
-      const inventory = response.data.inventory;
+      const productsData = response.data.products || [];
       
-      // Check if inventory is empty
+      // Transform products to include quantity from cashier's store inventory
+      const inventory = productsData.map(product => {
+        const storeInventory = product.inventory?.find(inv => inv.storeId === storeId);
+        return {
+          ...product,
+          quantity: storeInventory?.quantity || 0
+        };
+      });
+      
+      console.log(`📦 Transformed ${inventory.length} products with quantities`);
+      
+      // Check if NO products exist at all
       if (!inventory || inventory.length === 0) {
-        console.warn(`⚠️  No products found for store: ${user.assignedStore?.name} (ID: ${storeId})`);
-        console.warn(`💡 This means either:`);
-        console.warn(`   1. Inventory hasn't been synced from Shopify yet`);
-        console.warn(`   2. This store has no products with quantity > 0`);
-        console.warn(`   3. The Shopify sync failed`);
+        console.warn(`⚠️  No products found in the system!`);
+        console.warn(`💡 This means the Shopify product sync hasn't been run yet`);
         
         clearInterval(progressInterval);
         setLoadingProgress(0);
         setLoadingProducts(false);
         
         toast.error(
-          `No products available for ${user.assignedStore?.name}. Please contact admin to sync inventory.`,
+          `No products in system. Please contact admin to sync products from Shopify.`,
           { duration: 5000 }
         );
         return;
       }
+      
+      // Log how many products have stock in this store
+      const productsWithStock = inventory.filter(p => p.quantity > 0).length;
+      console.log(`📊 Store "${user.assignedStore?.name}": ${productsWithStock} products with stock, ${inventory.length - productsWithStock} out of stock`);
       
       // Small delay to show processing message
       await new Promise(resolve => setTimeout(resolve, 300));

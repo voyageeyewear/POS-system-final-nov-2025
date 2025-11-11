@@ -46,12 +46,9 @@ exports.getAllProducts = async (req, res) => {
     let queryBuilder = productRepo.createQueryBuilder('product')
       .where('product.isActive = :isActive', { isActive: true });
 
-    // AGGRESSIVE FIX: If cashier, ONLY show products available in their store
-    if (isCashier && userStoreId) {
-      console.log(`🔒 Filtering products for cashier's store ID: ${userStoreId}`);
-      queryBuilder
-        .innerJoin('product.inventory', 'cashier_inventory', 'cashier_inventory.storeId = :storeId AND cashier_inventory.quantity > 0', { storeId: userStoreId });
-    }
+    // CHANGED: Show ALL products to cashiers (not filtered by store)
+    // They will see inventory quantities from their assigned store only
+    console.log(`📦 Showing all products${isCashier ? ` with inventory for store ID: ${userStoreId}` : ''}`);
 
     if (category) {
       queryBuilder.andWhere('product.category = :category', { category });
