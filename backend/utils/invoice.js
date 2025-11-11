@@ -276,16 +276,22 @@ class InvoiceGenerator {
         
         sale.items.forEach((item, index) => {
           // 🔥 FIX: Convert PostgreSQL strings to numbers
-          const unitPrice = parseFloat(item.unitPrice || 0);
+          const unitPrice = parseFloat(item.unitPrice || 0); // MRP (tax-inclusive)
           const discount = parseFloat(item.discount || 0);
           const quantity = parseInt(item.quantity || 1);
           const taxRate = parseFloat(item.taxRate || 5);
           
-          const taxableAmount = (unitPrice - discount) * quantity;
-          const cgst = taxRate > 5 ? taxableAmount * 0.09 : taxableAmount * 0.025;
-          const sgst = taxRate > 5 ? taxableAmount * 0.09 : taxableAmount * 0.025;
+          // TAX-INCLUSIVE CALCULATION: Extract tax from MRP
+          const mrpTotal = (unitPrice - discount) * quantity; // Total MRP after discount
+          const taxMultiplier = 1 + (taxRate / 100);
+          const taxableAmount = mrpTotal / taxMultiplier; // Base price (tax-excluded)
+          const totalTax = mrpTotal - taxableAmount; // Extracted tax
+          
+          // Split tax into CGST/SGST (equal split for intra-state)
+          const cgst = totalTax / 2;
+          const sgst = totalTax / 2;
           const igst = 0; // For same state, IGST is 0
-          const itemTotal = taxableAmount + cgst + sgst + igst; // Calculate instead of using item.totalAmount
+          const itemTotal = mrpTotal; // Final amount = MRP (tax already included)
           
           colX = margin;
           doc.text((index + 1).toString(), colX, itemY, { width: colWidths.sl, align: 'center' });
@@ -430,8 +436,13 @@ class InvoiceGenerator {
 
         itemY += 25;
         doc.font('Helvetica').fontSize(8);
-        const taxableValue = subtotal - totalDiscount;
+        
+        // TAX-INCLUSIVE: Extract base price from MRP total
+        const mrpTotal = subtotal - totalDiscount; // Total MRP
         const taxRate = parseFloat(sale.items[0]?.taxRate || 5);
+        const taxMultiplier = 1 + (taxRate / 100);
+        const taxableValue = mrpTotal / taxMultiplier; // Base price (excluding tax)
+        
         const cgstRate = taxRate / 2;
         const sgstRate = taxRate / 2;
         const cgstAmount = totalTax / 2;
