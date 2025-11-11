@@ -179,13 +179,20 @@ async function createDemoData(req, res) {
     
     console.log('🎭 DEMO MODE: Creating realistic demo stores, products, and inventory...');
     
-    // Save user-store assignments
-    const allUsers = await userRepo.find({ relations: ['assignedStore'] });
-    const userStoreMap = new Map();
-    for (const user of allUsers) {
-      if (user.assignedStore) {
-        userStoreMap.set(user.email, user.assignedStore.name);
+    // Save user-store assignments (FIXED: Load with try-catch)
+    let allUsers = [];
+    let userStoreMap = new Map();
+    
+    try {
+      allUsers = await userRepo.find({ relations: ['assignedStore'] });
+      for (const user of allUsers) {
+        if (user.assignedStore) {
+          userStoreMap.set(user.email, user.assignedStore.name);
+        }
       }
+    } catch (relationError) {
+      console.warn('⚠️  Could not load user relations, loading without relations:', relationError.message);
+      allUsers = await userRepo.find(); // Load without relations as fallback
     }
     
     // Unassign users
@@ -196,8 +203,15 @@ async function createDemoData(req, res) {
       }
     }
     
-    // Delete existing data
-    await storeRepo.delete({});
+    // Delete existing data (FIXED: Use clear() or remove() instead of delete())
+    try {
+      const existingStores = await storeRepo.find();
+      if (existingStores.length > 0) {
+        await storeRepo.remove(existingStores);
+      }
+    } catch (deleteError) {
+      console.warn('⚠️  Could not delete stores:', deleteError.message);
+    }
     console.log('✅ Cleared existing stores');
     
     // Create demo stores
@@ -327,7 +341,12 @@ async function createDemoData(req, res) {
     });
   } catch (error) {
     console.error('❌ Demo data creation error:', error);
-    res.status(500).json({ error: error.message });
+    console.error('❌ Stack trace:', error.stack);
+    res.status(500).json({ 
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+      details: 'Failed to create demo data. Check server logs for details.'
+    });
   }
 }
 
