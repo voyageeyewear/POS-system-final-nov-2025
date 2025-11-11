@@ -95,15 +95,14 @@ export default function POS() {
       console.log(`✅ Loaded ${productsData.length} products!`);
       console.log(`📊 Total: ${pagination?.total || productsData.length} products`);
       
-      // Get store ID for inventory filtering
-      const storeId = user.assignedStore?.id || user.assignedStore?._id;
-      
-      // Transform products with inventory quantities
+      // 🚀 SIMPLE: Show TOTAL inventory across ALL stores (like admin)
       const transformedProducts = productsData.map(product => {
-        const storeInventory = product.inventory?.find(inv => inv.storeId === storeId);
+        // Sum up inventory from ALL stores
+        const totalQuantity = product.inventory?.reduce((sum, inv) => sum + (inv.quantity || 0), 0) || 0;
+        
         return {
           ...product,
-          quantity: storeInventory?.quantity || 0
+          quantity: totalQuantity
         };
       });
       
