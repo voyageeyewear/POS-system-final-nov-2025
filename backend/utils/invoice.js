@@ -101,9 +101,10 @@ class InvoiceGenerator {
         const watermarkPath = path.join(__dirname, '../assets/Voyage Logo watermark.png');
         
         if (fs.existsSync(watermarkPath)) {
-          const watermarkWidth = 450; // Larger watermark width
+          const watermarkWidth = 380; // Reduced watermark width
+          const watermarkHeight = 380; // Approximate height (maintains aspect ratio)
           const watermarkX = (pageWidth - watermarkWidth) / 2; // Center horizontally
-          const watermarkY = 200; // Vertical position from top
+          const watermarkY = (pageHeight - watermarkHeight) / 2; // Center vertically
           
           doc.save();
           doc.opacity(0.15); // More visible opacity (15%, increased from 8%)
