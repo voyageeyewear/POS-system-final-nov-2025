@@ -408,8 +408,10 @@ exports.updateSale = async (req, res) => {
     console.log(`✏️  Editing sale: ${sale.invoiceNumber} (ID: ${sale.id})`);
 
     // Step 1: Restore inventory for old items
+    const inventoryRepoTxn = queryRunner.manager.getRepository('Inventory');
+    
     for (const oldItem of sale.items) {
-      const inventory = await queryRunner.manager.findOne('Inventory', {
+      const inventory = await inventoryRepoTxn.findOne({
         where: {
           productId: oldItem.productId,
           storeId: sale.storeId
@@ -420,7 +422,7 @@ exports.updateSale = async (req, res) => {
         const oldQty = parseInt(inventory.quantity);
         const restoreQty = parseInt(oldItem.quantity);
         inventory.quantity = oldQty + restoreQty;
-        await queryRunner.manager.save(inventory);
+        await inventoryRepoTxn.save(inventory);
         console.log(`✅ Restored ${restoreQty} units of product ${oldItem.productId} (${oldQty} → ${inventory.quantity})`);
       }
     }
@@ -443,8 +445,8 @@ exports.updateSale = async (req, res) => {
         throw new Error(`Product not found: ${item.productId}`);
       }
 
-      // Check inventory - use queryRunner.manager to see restored quantities within transaction
-      const inventory = await queryRunner.manager.findOne('Inventory', {
+      // Check inventory - use transaction repository to see restored quantities
+      const inventory = await inventoryRepoTxn.findOne({
         where: {
           productId: parseInt(item.productId),
           storeId: sale.storeId
@@ -496,7 +498,7 @@ exports.updateSale = async (req, res) => {
 
       // Update inventory - deduct new quantity
       inventory.quantity = availableQuantity - item.quantity;
-      await queryRunner.manager.save(inventory);
+      await inventoryRepoTxn.save(inventory);
       console.log(`✅ Deducted ${item.quantity} units of ${product.name} (${availableQuantity} → ${inventory.quantity})`);
     }
 
