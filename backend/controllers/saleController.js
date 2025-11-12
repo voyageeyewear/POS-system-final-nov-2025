@@ -490,19 +490,22 @@ exports.updateSale = async (req, res) => {
       console.log(`✅ Deducted ${item.quantity} units of ${product.name}`);
     }
 
-    // Step 4: Save new sale items
-    for (const itemData of newSaleItems) {
-      const saleItem = saleItemRepo.create(itemData);
-      await saleItemRepo.save(saleItem);
-    }
-
-    // Step 5: Update sale totals
+    // Step 4: Update sale totals first
     const totalAmount = subtotal - totalDiscount;
     sale.subtotal = subtotal;
     sale.totalDiscount = totalDiscount;
     sale.totalTax = totalTax;
     sale.totalAmount = totalAmount;
     await saleRepo.save(sale);
+    
+    // Step 5: Save new sale items (after sale is updated)
+    for (const itemData of newSaleItems) {
+      const saleItem = saleItemRepo.create({
+        ...itemData,
+        saleId: sale.id // Explicitly ensure saleId is set
+      });
+      await saleItemRepo.save(saleItem);
+    }
 
     console.log(`✅ Updated sale totals - Total: ${totalAmount}`);
 
