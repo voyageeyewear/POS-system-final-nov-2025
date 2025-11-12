@@ -137,8 +137,8 @@ class InvoiceGenerator {
         
         // Company Name (Large, Bold, Centered)
         doc.fontSize(16).font('Helvetica-Bold');
-        doc.text('SS ENTERPRISES', margin + logoSize + 10, 55, {
-          width: pageWidth - (margin + logoSize + 10) - (margin + 100),
+        doc.text('SS ENTERPRISES', margin + logoWidth + 10, 55, {
+          width: pageWidth - (margin + logoWidth + 10) - (margin + 100),
           align: 'center'
         });
         
@@ -160,22 +160,22 @@ class InvoiceGenerator {
         
         // Address (centered)
         doc.fontSize(9).font('Helvetica');
-        doc.text(storeAddress, margin + logoSize + 10, 75, {
-          width: pageWidth - (margin + logoSize + 10) - (margin + 100),
+        doc.text(storeAddress, margin + logoWidth + 10, 75, {
+          width: pageWidth - (margin + logoWidth + 10) - (margin + 100),
           align: 'center'
         });
         
         // GSTIN (centered)
-        doc.text('GSTIN: 08AGFPK7804C1ZQ, PAN: AAICR8905Q', margin + logoSize + 10, 90, {
-          width: pageWidth - (margin + logoSize + 10) - (margin + 100),
+        doc.text('GSTIN: 08AGFPK7804C1ZQ, PAN: AAICR8905Q', margin + logoWidth + 10, 90, {
+          width: pageWidth - (margin + logoWidth + 10) - (margin + 100),
           align: 'center'
         });
         
         // Contact Details (centered)
         doc.fontSize(8);
         doc.text(`Tel No: ${store.phone || '011-45809914'}    Email Id: ${store.email || 'ssenterprise255@gmail.com'}`, 
-          margin + logoSize + 10, 103, {
-          width: pageWidth - (margin + logoSize + 10) - (margin + 100),
+          margin + logoWidth + 10, 103, {
+          width: pageWidth - (margin + logoWidth + 10) - (margin + 100),
           align: 'center'
         });
         
