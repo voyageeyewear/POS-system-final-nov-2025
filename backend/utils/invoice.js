@@ -107,8 +107,16 @@ class InvoiceGenerator {
           const logoHeight = 100; // Big logo with better proportions
           const logoWidthActual = 100;
           doc.image(logoPath, margin, 30, { width: logoWidthActual, height: logoHeight });
+          
+          // Add "SS ENTERPRISES" text below the logo, centered
+          doc.fontSize(10).font('Helvetica-Bold').fillColor('#000000')
+            .text('SS ENTERPRISES', margin, 30 + logoHeight + 2, { 
+              width: logoWidthActual, 
+              align: 'center' 
+            });
+          
           logoWidth = logoWidthActual + 10; // Reduced spacing for tighter layout
-          logoBottomY = 30 + logoHeight + 10; // Bottom of logo + spacing
+          logoBottomY = 30 + logoHeight + 20; // Bottom of logo + text + spacing
         }
         
         // Company Name (Large, Bold) - Next to logo, changed to Voyage Eyewear
