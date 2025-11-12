@@ -99,9 +99,9 @@ class InvoiceGenerator {
         const pageWidth = 595;
         const margin = 15;
         
-        // LEFT: Company Logo
+        // LEFT: Company Logo (increased size)
         const logoPath = path.join(__dirname, '../assets/voyage-logo.png');
-        const logoSize = 80;
+        const logoSize = 110;
         if (fs.existsSync(logoPath)) {
           doc.image(logoPath, margin, 30, { width: logoSize, height: logoSize });
         }
@@ -188,7 +188,7 @@ class InvoiceGenerator {
         const addressStartY = 125; // Start content below header
 
         // ===== CONSIGNEE AND BUYER BOXES =====
-        const boxY = addressStartY + 50; // Start boxes below company details
+        const boxY = addressStartY + 15; // Reduced spacing between header and boxes
         const boxHeight = 95;
         const boxWidth = 257;
         
