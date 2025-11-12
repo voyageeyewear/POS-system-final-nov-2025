@@ -374,28 +374,30 @@ exports.getSalesStats = async (req, res) => {
   }
 };
 
-// Delete sale (Admin only)
-exports.deleteSale = async (req, res) => {
+// Update/Edit sale (Admin only)
+exports.updateSale = async (req, res) => {
   const queryRunner = AppDataSource.createQueryRunner();
   await queryRunner.connect();
   await queryRunner.startTransaction();
 
   try {
     const { saleId } = req.params;
+    const { items } = req.body; // Array of { productId, quantity, discount }
     
-    // Only admins can delete sales
+    // Only admins can edit sales
     if (req.user.role !== 'admin') {
-      return res.status(403).json({ error: 'Only admins can delete sales' });
+      return res.status(403).json({ error: 'Only admins can edit sales' });
     }
     
     const saleRepo = queryRunner.manager.getRepository('Sale');
     const saleItemRepo = queryRunner.manager.getRepository('SaleItem');
+    const productRepo = queryRunner.manager.getRepository('Product');
     const inventoryRepo = queryRunner.manager.getRepository('Inventory');
     
     // Find the sale with items
     const sale = await saleRepo.findOne({
       where: { id: parseInt(saleId) },
-      relations: ['items']
+      relations: ['items', 'items.product']
     });
 
     if (!sale) {
@@ -403,44 +405,123 @@ exports.deleteSale = async (req, res) => {
       return res.status(404).json({ error: 'Sale not found' });
     }
 
-    console.log(`🗑️  Deleting sale: ${sale.invoiceNumber} (ID: ${sale.id})`);
+    console.log(`✏️  Editing sale: ${sale.invoiceNumber} (ID: ${sale.id})`);
 
-    // Restore inventory for each item
-    for (const item of sale.items) {
+    // Step 1: Restore inventory for old items
+    for (const oldItem of sale.items) {
       const inventory = await inventoryRepo.findOne({
         where: {
-          productId: item.productId,
+          productId: oldItem.productId,
           storeId: sale.storeId
         }
       });
 
       if (inventory) {
-        inventory.quantity = parseInt(inventory.quantity) + parseInt(item.quantity);
+        inventory.quantity = parseInt(inventory.quantity) + parseInt(oldItem.quantity);
         await inventoryRepo.save(inventory);
-        console.log(`✅ Restored ${item.quantity} units of product ${item.productId} to store ${sale.storeId}`);
+        console.log(`✅ Restored ${oldItem.quantity} units of product ${oldItem.productId}`);
       }
     }
 
-    // Delete sale items first (FK constraint)
+    // Step 2: Delete old sale items
     if (sale.items.length > 0) {
       await saleItemRepo.remove(sale.items);
-      console.log(`✅ Deleted ${sale.items.length} sale items`);
+      console.log(`✅ Deleted ${sale.items.length} old sale items`);
     }
 
-    // Delete the sale
-    await saleRepo.remove(sale);
-    console.log(`✅ Deleted sale: ${sale.invoiceNumber}`);
+    // Step 3: Create new sale items and deduct inventory
+    const newSaleItems = [];
+    let subtotal = 0;
+    let totalDiscount = 0;
+    let totalTax = 0;
+
+    for (const item of items) {
+      const product = await productRepo.findOne({ where: { id: parseInt(item.productId) } });
+      if (!product) {
+        throw new Error(`Product not found: ${item.productId}`);
+      }
+
+      // Check inventory
+      const inventory = await inventoryRepo.findOne({
+        where: {
+          productId: parseInt(item.productId),
+          storeId: sale.storeId
+        }
+      });
+
+      if (!inventory || inventory.quantity < item.quantity) {
+        throw new Error(`Insufficient inventory for ${product.name}`);
+      }
+
+      // Calculate item totals with TAX-INCLUSIVE PRICING
+      const unitPrice = parseFloat(product.price);
+      const discount = item.discount || 0;
+      
+      const itemMRP = unitPrice * item.quantity;
+      const itemDiscount = discount * item.quantity;
+      const discountedMRP = itemMRP - itemDiscount;
+      
+      const taxMultiplier = 1 + (product.taxRate / 100);
+      const baseAmount = discountedMRP / taxMultiplier;
+      const taxAmount = discountedMRP - baseAmount;
+      const discountedPrice = unitPrice - discount;
+
+      newSaleItems.push({
+        saleId: sale.id,
+        productId: product.id,
+        name: product.name,
+        sku: product.sku,
+        quantity: item.quantity,
+        unitPrice,
+        discount,
+        discountedPrice,
+        taxRate: product.taxRate,
+        taxAmount,
+        totalAmount: discountedMRP
+      });
+
+      subtotal += itemMRP;
+      totalDiscount += itemDiscount;
+      totalTax += taxAmount;
+
+      // Update inventory
+      inventory.quantity -= item.quantity;
+      await inventoryRepo.save(inventory);
+      console.log(`✅ Deducted ${item.quantity} units of ${product.name}`);
+    }
+
+    // Step 4: Save new sale items
+    for (const itemData of newSaleItems) {
+      const saleItem = saleItemRepo.create(itemData);
+      await saleItemRepo.save(saleItem);
+    }
+
+    // Step 5: Update sale totals
+    const totalAmount = subtotal - totalDiscount;
+    sale.subtotal = subtotal;
+    sale.totalDiscount = totalDiscount;
+    sale.totalTax = totalTax;
+    sale.totalAmount = totalAmount;
+    await saleRepo.save(sale);
+
+    console.log(`✅ Updated sale totals - Total: ${totalAmount}`);
 
     // Commit transaction
     await queryRunner.commitTransaction();
 
+    // Load complete updated sale
+    const updatedSale = await getSaleRepository().findOne({
+      where: { id: sale.id },
+      relations: ['store', 'cashier', 'customer', 'items', 'items.product']
+    });
+
     res.json({ 
-      message: 'Sale deleted successfully',
-      invoiceNumber: sale.invoiceNumber 
+      message: 'Sale updated successfully',
+      sale: updatedSale
     });
   } catch (error) {
     await queryRunner.rollbackTransaction();
-    console.error('❌ Sale deletion error:', error);
+    console.error('❌ Sale update error:', error);
     res.status(400).json({ error: error.message });
   } finally {
     await queryRunner.release();

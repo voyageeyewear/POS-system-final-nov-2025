@@ -79,7 +79,7 @@ export const saleAPI = {
       responseType: 'blob',
     });
   },
-  delete: (saleId) => api.delete(`/sales/${saleId}`),
+  update: (saleId, data) => api.put(`/sales/${saleId}`, data),
 };
 
 // Inventory APIs
