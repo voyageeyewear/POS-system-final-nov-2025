@@ -120,11 +120,12 @@ class InvoiceGenerator {
         }
         
         // Company Name (Large, Bold) - Next to logo, changed to Voyage Eyewear
-        const companyNameX = margin + logoWidth;
-        doc.fontSize(24).font('Helvetica-Bold').fillColor('#000000').text('Voyage Eyewear', companyNameX, 60, {
-          width: pageWidth - companyNameX - margin - 220,
-          align: 'left'
-        });
+        // COMMENTED OUT: Voyage Eyewear text next to logo
+        // const companyNameX = margin + logoWidth;
+        // doc.fontSize(24).font('Helvetica-Bold').fillColor('#000000').text('Voyage Eyewear', companyNameX, 60, {
+        //   width: pageWidth - companyNameX - margin - 220,
+        //   align: 'left'
+        // });
         
         // Invoice Number Box (Top Right) - Wider for longer invoice numbers
         const invoiceBoxWidth = 215;
