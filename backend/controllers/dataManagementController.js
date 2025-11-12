@@ -8,6 +8,7 @@ const getStoreRepository = () => AppDataSource.getRepository('Store');
 const getUserRepository = () => AppDataSource.getRepository('User');
 const getProductRepository = () => AppDataSource.getRepository('Product');
 const getSaleRepository = () => AppDataSource.getRepository('Sale');
+const getSaleItemRepository = () => AppDataSource.getRepository('SaleItem');
 const getCustomerRepository = () => AppDataSource.getRepository('Customer');
 const getInventoryRepository = () => AppDataSource.getRepository('Inventory');
 
@@ -128,44 +129,103 @@ exports.getAllBackups = async (req, res) => {
 // Clean up all data
 exports.cleanupData = async (req, res) => {
   try {
+    console.log('🧹 Starting data cleanup...');
+    
+    const saleItemRepo = getSaleItemRepository();
     const saleRepo = getSaleRepository();
     const customerRepo = getCustomerRepository();
+    const inventoryRepo = getInventoryRepository();
     const productRepo = getProductRepository();
     const userRepo = getUserRepository();
-    const inventoryRepo = getInventoryRepository();
 
-    // Delete all data (except admin users)
+    // 🔥 CRITICAL: Delete in correct order to avoid FK constraint errors
+    // Order: SaleItems → Sales → Customers → Inventory → Products → Non-admin Users
+    
+    // 1. Delete all sale items first (has FK to sales and products)
+    console.log('🗑️  Step 1/6: Deleting sale items...');
+    const allSaleItems = await saleItemRepo.find();
+    if (allSaleItems.length > 0) {
+      await saleItemRepo.remove(allSaleItems);
+      console.log(`✅ Deleted ${allSaleItems.length} sale items`);
+    } else {
+      console.log('✅ No sale items to delete');
+    }
+    
+    // 2. Delete all sales (has FK to customers, stores, cashiers)
+    console.log('🗑️  Step 2/6: Deleting sales...');
     const allSales = await saleRepo.find();
+    if (allSales.length > 0) {
+      await saleRepo.remove(allSales);
+      console.log(`✅ Deleted ${allSales.length} sales`);
+    } else {
+      console.log('✅ No sales to delete');
+    }
+    
+    // 3. Delete all customers
+    console.log('🗑️  Step 3/6: Deleting customers...');
     const allCustomers = await customerRepo.find();
+    if (allCustomers.length > 0) {
+      await customerRepo.remove(allCustomers);
+      console.log(`✅ Deleted ${allCustomers.length} customers`);
+    } else {
+      console.log('✅ No customers to delete');
+    }
+    
+    // 4. Delete all inventory (has FK to products and stores)
+    console.log('🗑️  Step 4/6: Deleting inventory...');
     const allInventory = await inventoryRepo.find();
+    if (allInventory.length > 0) {
+      await inventoryRepo.remove(allInventory);
+      console.log(`✅ Deleted ${allInventory.length} inventory records`);
+    } else {
+      console.log('✅ No inventory to delete');
+    }
+    
+    // 5. Delete all products
+    console.log('🗑️  Step 5/6: Deleting products...');
     const allProducts = await productRepo.find();
+    if (allProducts.length > 0) {
+      await productRepo.remove(allProducts);
+      console.log(`✅ Deleted ${allProducts.length} products`);
+    } else {
+      console.log('✅ No products to delete');
+    }
     
-    if (allSales.length > 0) await saleRepo.remove(allSales);
-    if (allCustomers.length > 0) await customerRepo.remove(allCustomers);
-    if (allInventory.length > 0) await inventoryRepo.remove(allInventory);
-    if (allProducts.length > 0) await productRepo.remove(allProducts);
-    
-    // Delete non-admin users
+    // 6. Delete non-admin users (cashiers)
+    console.log('🗑️  Step 6/6: Deleting non-admin users...');
     const nonAdminUsers = await userRepo.find({ where: { role: 'cashier' } });
     if (nonAdminUsers.length > 0) {
       await userRepo.remove(nonAdminUsers);
+      console.log(`✅ Deleted ${nonAdminUsers.length} non-admin users`);
+    } else {
+      console.log('✅ No non-admin users to delete');
     }
     
     // Note: We keep stores as they're linked to Shopify locations
+    console.log('✅ Data cleanup completed successfully!');
+    
+    // Clear cache
+    cache.clear();
+    console.log('🗑️  Cleared all cache');
 
     res.json({
       message: 'Data cleanup completed successfully',
       deleted: {
-        sales: 'All',
-        customers: 'All',
-        products: 'All',
-        inventory: 'All',
-        users: 'All non-admin users'
+        saleItems: allSaleItems.length,
+        sales: allSales.length,
+        customers: allCustomers.length,
+        inventory: allInventory.length,
+        products: allProducts.length,
+        users: nonAdminUsers.length
       }
     });
   } catch (error) {
-    console.error('Cleanup error:', error);
-    res.status(500).json({ error: error.message });
+    console.error('❌ Cleanup error:', error);
+    console.error('❌ Stack trace:', error.stack);
+    res.status(500).json({ 
+      error: error.message,
+      details: 'Failed to cleanup data. Check server logs for details.'
+    });
   }
 };
 
