@@ -104,13 +104,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* Quick Actions */}
-      <div className="grid md:grid-cols-3 gap-4 mb-6">
-        <Link href="/admin/stores" className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition cursor-pointer">
-          <Store className="w-10 h-10 text-primary-500 mb-3" />
-          <h3 className="font-semibold text-gray-800 mb-1">Manage Stores</h3>
-          <p className="text-sm text-gray-600">Add, edit, and view all stores</p>
-        </Link>
-
+      <div className="grid md:grid-cols-2 gap-4 mb-6">
         <Link href="/admin/users" className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition cursor-pointer">
           <Users className="w-10 h-10 text-primary-500 mb-3" />
           <h3 className="font-semibold text-gray-800 mb-1">Manage Users</h3>
