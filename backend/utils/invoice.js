@@ -102,9 +102,10 @@ class InvoiceGenerator {
         
         if (fs.existsSync(watermarkPath)) {
           const watermarkWidth = 380; // Reduced watermark width
-          const watermarkHeight = 380; // Approximate height (maintains aspect ratio)
+          // Since logo is taller than wide (portrait), estimate height as ~1.3x width
+          const estimatedHeight = watermarkWidth * 1.3;
           const watermarkX = (pageWidth - watermarkWidth) / 2; // Center horizontally
-          const watermarkY = (pageHeight - watermarkHeight) / 2; // Center vertically
+          const watermarkY = (pageHeight - estimatedHeight) / 2; // Center vertically with correct height
           
           doc.save();
           doc.opacity(0.15); // More visible opacity (15%, increased from 8%)
