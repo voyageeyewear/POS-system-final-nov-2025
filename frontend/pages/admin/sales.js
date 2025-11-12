@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '../../contexts/AuthContext';
 import AdminLayout from '../../components/AdminLayout';
-import { Download, Filter, TrendingUp, DollarSign } from 'lucide-react';
+import { Download, Filter, TrendingUp, DollarSign, Trash2 } from 'lucide-react';
 import { saleAPI, storeAPI } from '../../utils/api';
 import toast from 'react-hot-toast';
 
@@ -119,6 +119,28 @@ export default function SalesReports() {
         errorMsg = error.message;
       }
       
+      toast.error(errorMsg, { duration: 5000 });
+    }
+  };
+
+  const handleDeleteSale = async (saleId, invoiceNumber) => {
+    // Confirmation dialog
+    const confirmed = window.confirm(
+      `Are you sure you want to delete invoice ${invoiceNumber}?\n\nThis will:\n- Delete the sale record\n- Delete all sale items\n- Restore inventory quantities\n\nThis action cannot be undone.`
+    );
+    
+    if (!confirmed) return;
+
+    try {
+      console.log(`🗑️  Deleting sale: ${invoiceNumber} (ID: ${saleId})`);
+      await saleAPI.delete(saleId);
+      toast.success(`Invoice ${invoiceNumber} deleted successfully`);
+      
+      // Reload data to refresh the table
+      loadData();
+    } catch (error) {
+      console.error('❌ Delete sale error:', error);
+      const errorMsg = error.response?.data?.error || error.message || 'Failed to delete sale';
       toast.error(errorMsg, { duration: 5000 });
     }
   };
@@ -288,13 +310,22 @@ export default function SalesReports() {
                     {new Date(sale.saleDate).toLocaleDateString()}
                   </td>
                   <td className="px-4 py-3 text-sm">
-                    <button
-                      onClick={() => downloadInvoice(sale.id, sale.invoiceNumber)}
-                      className="p-1 hover:bg-gray-100 rounded"
-                      title="Download Invoice"
-                    >
-                      <Download className="w-4 h-4 text-primary-600" />
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => downloadInvoice(sale.id, sale.invoiceNumber)}
+                        className="p-1 hover:bg-gray-100 rounded"
+                        title="Download Invoice"
+                      >
+                        <Download className="w-4 h-4 text-primary-600" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteSale(sale.id, sale.invoiceNumber)}
+                        className="p-1 hover:bg-red-50 rounded"
+                        title="Delete Sale"
+                      >
+                        <Trash2 className="w-4 h-4 text-red-600" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

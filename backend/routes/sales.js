@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const saleController = require('../controllers/saleController');
-const { authenticate } = require('../middleware/auth');
+const { authenticate, isAdmin } = require('../middleware/auth');
 
 // All routes require authentication
 router.use(authenticate);
@@ -16,6 +16,9 @@ router.get('/:saleId', saleController.getSale);
 
 // Generate invoice
 router.get('/:saleId/invoice', saleController.generateInvoice);
+
+// Delete sale (Admin only)
+router.delete('/:saleId', isAdmin, saleController.deleteSale);
 
 module.exports = router;
 

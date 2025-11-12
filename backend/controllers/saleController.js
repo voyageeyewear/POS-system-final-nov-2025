@@ -373,3 +373,76 @@ exports.getSalesStats = async (req, res) => {
     res.status(400).json({ error: error.message });
   }
 };
+
+// Delete sale (Admin only)
+exports.deleteSale = async (req, res) => {
+  const queryRunner = AppDataSource.createQueryRunner();
+  await queryRunner.connect();
+  await queryRunner.startTransaction();
+
+  try {
+    const { saleId } = req.params;
+    
+    // Only admins can delete sales
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Only admins can delete sales' });
+    }
+    
+    const saleRepo = queryRunner.manager.getRepository('Sale');
+    const saleItemRepo = queryRunner.manager.getRepository('SaleItem');
+    const inventoryRepo = queryRunner.manager.getRepository('Inventory');
+    
+    // Find the sale with items
+    const sale = await saleRepo.findOne({
+      where: { id: parseInt(saleId) },
+      relations: ['items']
+    });
+
+    if (!sale) {
+      await queryRunner.rollbackTransaction();
+      return res.status(404).json({ error: 'Sale not found' });
+    }
+
+    console.log(`🗑️  Deleting sale: ${sale.invoiceNumber} (ID: ${sale.id})`);
+
+    // Restore inventory for each item
+    for (const item of sale.items) {
+      const inventory = await inventoryRepo.findOne({
+        where: {
+          productId: item.productId,
+          storeId: sale.storeId
+        }
+      });
+
+      if (inventory) {
+        inventory.quantity = parseInt(inventory.quantity) + parseInt(item.quantity);
+        await inventoryRepo.save(inventory);
+        console.log(`✅ Restored ${item.quantity} units of product ${item.productId} to store ${sale.storeId}`);
+      }
+    }
+
+    // Delete sale items first (FK constraint)
+    if (sale.items.length > 0) {
+      await saleItemRepo.remove(sale.items);
+      console.log(`✅ Deleted ${sale.items.length} sale items`);
+    }
+
+    // Delete the sale
+    await saleRepo.remove(sale);
+    console.log(`✅ Deleted sale: ${sale.invoiceNumber}`);
+
+    // Commit transaction
+    await queryRunner.commitTransaction();
+
+    res.json({ 
+      message: 'Sale deleted successfully',
+      invoiceNumber: sale.invoiceNumber 
+    });
+  } catch (error) {
+    await queryRunner.rollbackTransaction();
+    console.error('❌ Sale deletion error:', error);
+    res.status(400).json({ error: error.message });
+  } finally {
+    await queryRunner.release();
+  }
+};
