@@ -95,8 +95,26 @@ class InvoiceGenerator {
         
         doc.pipe(stream);
 
-        // ===== HEADER SECTION =====
+        // ===== WATERMARK (CENTERED BACKGROUND) =====
         const pageWidth = 595;
+        const pageHeight = 842; // A4 height
+        const watermarkPath = path.join(__dirname, '../assets/voyage-logo.png');
+        
+        if (fs.existsSync(watermarkPath)) {
+          const watermarkSize = 350; // Large watermark
+          const watermarkX = (pageWidth - watermarkSize) / 2; // Center horizontally
+          const watermarkY = (pageHeight - watermarkSize) / 2; // Center vertically
+          
+          doc.save();
+          doc.opacity(0.08); // Very light opacity (8%)
+          doc.image(watermarkPath, watermarkX, watermarkY, { 
+            width: watermarkSize, 
+            height: watermarkSize 
+          });
+          doc.restore(); // Restore full opacity for other content
+        }
+
+        // ===== HEADER SECTION =====
         const margin = 15;
         
         // LEFT: Company Logo (increased size)
