@@ -99,7 +99,7 @@ class InvoiceGenerator {
         const pageWidth = 595;
         const margin = 15;
         
-        // Company Logo - Top Left (Big with proper spacing)
+        // Company Logo - Top Left (Big with tight spacing)
         const logoPath = path.join(__dirname, '../assets/voyage-logo.png');
         let logoWidth = 0;
         let logoBottomY = 50; // Default if no logo
@@ -107,7 +107,7 @@ class InvoiceGenerator {
           const logoHeight = 100; // Big logo with better proportions
           const logoWidthActual = 100;
           doc.image(logoPath, margin, 30, { width: logoWidthActual, height: logoHeight });
-          logoWidth = logoWidthActual + 20; // More spacing after logo
+          logoWidth = logoWidthActual + 10; // Reduced spacing for tighter layout
           logoBottomY = 30 + logoHeight + 10; // Bottom of logo + spacing
         }
         
