@@ -595,7 +595,7 @@ class InvoiceGenerator {
         doc.text(amountInWords(grandTotalTax), margin, itemY + 12);
 
         // ===== FOOTER =====
-        itemY += 50;
+        itemY += 100; // Increased margin-top to 100px (50px extra spacing)
         
         // Bank Details (Left)
         doc.fontSize(9).font('Helvetica-Bold');
