@@ -586,7 +586,7 @@ class InvoiceGenerator {
         colX += taxColWidths.igstAmt;
         doc.text(grandTotalTax.toFixed(2), colX, taxRowY + 3, { width: taxColWidths.totalTax, align: 'center' });
         
-        itemY = taxRowY + 15;
+        itemY = taxRowY + 35; // Increased from 15 to 35 for more top spacing
 
         // Tax Amount in Words
         doc.font('Helvetica-Bold').fontSize(9);
