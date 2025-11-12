@@ -190,7 +190,7 @@ class InvoiceGenerator {
         // ===== CONSIGNEE AND BUYER BOXES =====
         const boxY = addressStartY + 15; // Reduced spacing between header and boxes
         const boxHeight = 95;
-        const boxWidth = 257;
+        const boxWidth = (pageWidth - 2 * margin) / 2; // Full width: each box is half of available width
         
         // Helper function to wrap text manually
         const wrapText = (text, maxWidth) => {
@@ -260,7 +260,7 @@ class InvoiceGenerator {
         doc.text(`GSTIN/UIN: ${customer.gstNumber || 'N/A'}`, margin + boxWidth + 5, phoneY2 + 13, { lineBreak: false });
 
         // ===== ITEMS TABLE =====
-        const tableTop = 290;
+        const tableTop = boxY + boxHeight + 10; // Start table 10px below info boxes
         
         // Add logo before table (top-left of table area) if exists
         const tableLogo = path.join(__dirname, '../assets/logo.png');
