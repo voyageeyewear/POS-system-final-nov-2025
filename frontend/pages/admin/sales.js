@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '../../contexts/AuthContext';
 import AdminLayout from '../../components/AdminLayout';
-import { Download, Filter, TrendingUp, DollarSign, Edit, Plus, Trash, X } from 'lucide-react';
+import { Download, Filter, TrendingUp, DollarSign, Edit, Plus, Trash, X, Search } from 'lucide-react';
 import { saleAPI, storeAPI, productAPI } from '../../utils/api';
 import toast from 'react-hot-toast';
 
@@ -25,6 +25,10 @@ export default function SalesReports() {
   const [editItems, setEditItems] = useState([]);
   const [availableProducts, setAvailableProducts] = useState([]);
   const [processing, setProcessing] = useState(false);
+  
+  // Product selection modal
+  const [showProductModal, setShowProductModal] = useState(false);
+  const [productSearchTerm, setProductSearchTerm] = useState('');
 
   useEffect(() => {
     if (!loading) {
@@ -170,17 +174,38 @@ export default function SalesReports() {
       return;
     }
     
-    const firstProduct = availableProducts[0];
+    setProductSearchTerm('');
+    setShowProductModal(true);
+  };
+
+  const handleSelectProduct = (product) => {
+    // Check if product already exists in cart
+    const existingItem = editItems.find(item => item.productId === product.id);
+    
+    if (existingItem) {
+      toast.error('Product already added. Please edit the existing item.');
+      return;
+    }
+    
     setEditItems([...editItems, {
       id: Date.now(),
-      productId: firstProduct.id,
-      name: firstProduct.name,
-      price: parseFloat(firstProduct.price),
+      productId: product.id,
+      name: product.name,
+      price: parseFloat(product.price),
       quantity: 1,
       discount: 0,
-      taxRate: parseFloat(firstProduct.taxRate),
+      taxRate: parseFloat(product.taxRate),
     }]);
+    
+    setShowProductModal(false);
+    setProductSearchTerm('');
+    toast.success(`${product.name} added`);
   };
+
+  const filteredAvailableProducts = availableProducts.filter(product =>
+    product.name.toLowerCase().includes(productSearchTerm.toLowerCase()) ||
+    product.sku.toLowerCase().includes(productSearchTerm.toLowerCase())
+  );
 
   const handleRemoveProduct = (itemId) => {
     setEditItems(editItems.filter(item => item.id !== itemId));
@@ -632,6 +657,97 @@ export default function SalesReports() {
                   {processing ? 'Saving...' : 'Save Changes'}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Product Selection Modal */}
+      {showProductModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col">
+            {/* Header */}
+            <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+              <h3 className="text-xl font-bold text-gray-900">Select Product</h3>
+              <button
+                onClick={() => setShowProductModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Search */}
+            <div className="p-4 border-b border-gray-200">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search products by name or SKU..."
+                  value={productSearchTerm}
+                  onChange={(e) => setProductSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none"
+                  autoFocus
+                />
+              </div>
+            </div>
+
+            {/* Products List */}
+            <div className="flex-1 overflow-y-auto p-4">
+              {filteredAvailableProducts.length === 0 ? (
+                <div className="text-center py-12">
+                  <p className="text-gray-500">No products found</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {filteredAvailableProducts.map((product) => {
+                    const isAlreadyAdded = editItems.some(item => item.productId === product.id);
+                    
+                    return (
+                      <button
+                        key={product.id}
+                        onClick={() => handleSelectProduct(product)}
+                        disabled={isAlreadyAdded}
+                        className={`w-full text-left p-4 rounded-lg border transition ${
+                          isAlreadyAdded
+                            ? 'border-gray-200 bg-gray-50 cursor-not-allowed opacity-50'
+                            : 'border-gray-200 hover:border-primary-500 hover:bg-primary-50'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <h4 className="font-semibold text-gray-900">{product.name}</h4>
+                            <p className="text-sm text-gray-600">SKU: {product.sku}</p>
+                            <div className="flex items-center gap-4 mt-2">
+                              <span className="text-sm">
+                                <span className="text-gray-600">Price:</span>
+                                <span className="ml-1 font-medium text-gray-900">₹{parseFloat(product.price).toFixed(2)}</span>
+                              </span>
+                              <span className="text-sm">
+                                <span className="text-gray-600">Tax:</span>
+                                <span className="ml-1 font-medium text-gray-900">{product.taxRate}%</span>
+                              </span>
+                            </div>
+                          </div>
+                          {isAlreadyAdded && (
+                            <span className="text-xs text-gray-500 ml-4">Already added</span>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 border-t border-gray-200">
+              <button
+                onClick={() => setShowProductModal(false)}
+                className="w-full px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
+              >
+                Cancel
+              </button>
             </div>
           </div>
         </div>
