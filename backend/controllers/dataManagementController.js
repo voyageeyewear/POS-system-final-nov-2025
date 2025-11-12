@@ -3,6 +3,22 @@ const fs = require('fs');
 const path = require('path');
 const cache = require('../utils/cache');
 
+// Helper function to strip HTML tags from text
+function stripHtmlTags(html) {
+  if (!html) return '';
+  // Remove HTML tags
+  let text = html.replace(/<[^>]*>/g, '');
+  // Decode HTML entities
+  text = text.replace(/&nbsp;/g, ' ')
+             .replace(/&amp;/g, '&')
+             .replace(/&lt;/g, '<')
+             .replace(/&gt;/g, '>')
+             .replace(/&quot;/g, '"')
+             .replace(/&#39;/g, "'");
+  // Trim and clean multiple spaces
+  return text.trim().replace(/\s+/g, ' ');
+}
+
 // Get repositories
 const getStoreRepository = () => AppDataSource.getRepository('Store');
 const getUserRepository = () => AppDataSource.getRepository('User');
@@ -570,10 +586,14 @@ exports.refreshData = async (req, res) => {
             console.warn(`⚠️  Variant ${variant.id} (${shopifyProduct.title}) has NO inventory_item_id!`);
           }
           
+          // Clean product name by stripping HTML tags
+          const cleanTitle = stripHtmlTags(shopifyProduct.title);
+          const cleanVariantTitle = stripHtmlTags(variant.title);
+          
           const productData = {
-            name: variant.title === 'Default Title' 
-              ? shopifyProduct.title 
-              : `${shopifyProduct.title} - ${variant.title}`,
+            name: cleanVariantTitle === 'Default Title' 
+              ? cleanTitle 
+              : `${cleanTitle} - ${cleanVariantTitle}`,
             sku: variant.sku || `SKU-${variant.id}`,
             category: shopifyProduct.product_type || 'Uncategorized',
             price: parseFloat(variant.price) || 0,
