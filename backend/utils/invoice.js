@@ -99,19 +99,21 @@ class InvoiceGenerator {
         const pageWidth = 595;
         const margin = 15;
         
-        // Company Logo - Top Left (Bigger size)
+        // Company Logo - Top Left (Much Bigger with bottom spacing)
         const logoPath = path.join(__dirname, '../assets/voyage-logo.png');
         let logoWidth = 0;
+        let logoBottomY = 50; // Default if no logo
         if (fs.existsSync(logoPath)) {
-          const logoHeight = 90;
-          const logoWidthActual = 90; // Adjust based on logo aspect ratio
-          doc.image(logoPath, margin, 30, { width: logoWidthActual, height: logoHeight });
-          logoWidth = logoWidthActual + 15; // Add spacing after logo
+          const logoHeight = 120; // Much bigger logo
+          const logoWidthActual = 120;
+          doc.image(logoPath, margin, 25, { width: logoWidthActual, height: logoHeight });
+          logoWidth = logoWidthActual + 20; // More spacing after logo
+          logoBottomY = 25 + logoHeight + 10; // Bottom of logo + spacing
         }
         
-        // Company Name (Large, Bold) - Next to logo
+        // Company Name (Large, Bold) - Next to logo, changed to Voyage Eyewear
         const companyNameX = margin + logoWidth;
-        doc.fontSize(24).font('Helvetica-Bold').fillColor('#000000').text('SS ENTERPRISES', companyNameX, 50, {
+        doc.fontSize(24).font('Helvetica-Bold').fillColor('#000000').text('Voyage Eyewear', companyNameX, 60, {
           width: pageWidth - companyNameX - margin - 220,
           align: 'left'
         });
@@ -580,7 +582,7 @@ class InvoiceGenerator {
 
         // Company Name and Signatory
         doc.fontSize(9).font('Helvetica');
-        doc.text('for SS ENTERPRISES', pageWidth - margin - 150, itemY + 60, { align: 'right' });
+        doc.text('for Voyage Eyewear', pageWidth - margin - 150, itemY + 60, { align: 'right' });
         doc.fontSize(8);
         doc.text('Authorised Signatory', pageWidth - margin - 150, itemY + 90, { align: 'right' });
 
