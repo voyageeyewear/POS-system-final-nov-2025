@@ -177,7 +177,7 @@ export default function SalesReports() {
           >
             <option value="">All Stores</option>
             {stores.map((store) => (
-              <option key={store._id} value={store._id}>
+              <option key={store.id} value={store.id}>
                 {store.name}
               </option>
             ))}
@@ -249,7 +249,7 @@ export default function SalesReports() {
             </thead>
             <tbody className="divide-y divide-gray-200">
               {sales.map((sale) => (
-                <tr key={sale._id} className="hover:bg-gray-50">
+                <tr key={sale.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3 text-sm font-medium text-gray-800">
                     {sale.invoiceNumber}
                   </td>
