@@ -614,3 +614,81 @@ exports.getCashierPerformance = async (req, res) => {
     res.status(400).json({ error: error.message });
   }
 };
+
+// Delete sale
+exports.deleteSale = async (req, res) => {
+  const queryRunner = AppDataSource.createQueryRunner();
+  await queryRunner.connect();
+  await queryRunner.startTransaction();
+
+  try {
+    const { saleId } = req.params;
+    const saleRepo = getSaleRepository();
+    const saleItemRepo = getSaleItemRepository();
+    const inventoryRepo = getInventoryRepository();
+
+    console.log(`🗑️ Deleting sale ID: ${saleId}`);
+
+    // Get sale with all details
+    const sale = await saleRepo.findOne({
+      where: { id: parseInt(saleId) },
+      relations: ['items', 'items.product', 'store'],
+    });
+
+    if (!sale) {
+      await queryRunner.rollbackTransaction();
+      return res.status(404).json({ error: 'Sale not found' });
+    }
+
+    console.log(`📦 Found sale: ${sale.invoiceNumber} with ${sale.items.length} items`);
+
+    // Restore inventory for each item
+    for (const item of sale.items) {
+      console.log(`↩️ Restoring ${item.quantity} units of product ${item.productId} to store ${sale.storeId}`);
+      
+      const inventory = await inventoryRepo.findOne({
+        where: {
+          productId: item.productId,
+          storeId: sale.storeId,
+        },
+      });
+
+      if (inventory) {
+        const oldQuantity = parseInt(inventory.quantity || 0);
+        const newQuantity = oldQuantity + parseInt(item.quantity);
+        
+        inventory.quantity = newQuantity;
+        await queryRunner.manager.save(inventory);
+        
+        console.log(`✅ Inventory restored: ${oldQuantity} → ${newQuantity}`);
+      } else {
+        console.log(`⚠️ Warning: Inventory record not found for product ${item.productId} at store ${sale.storeId}`);
+      }
+    }
+
+    // Delete sale items first (foreign key constraint)
+    console.log(`🗑️ Deleting ${sale.items.length} sale items...`);
+    for (const item of sale.items) {
+      await queryRunner.manager.remove(item);
+    }
+
+    // Delete the sale
+    console.log(`🗑️ Deleting sale record...`);
+    await queryRunner.manager.remove(sale);
+
+    await queryRunner.commitTransaction();
+    
+    console.log(`✅ Sale ${sale.invoiceNumber} deleted successfully and inventory restored`);
+    res.json({ 
+      message: 'Sale deleted successfully and inventory restored',
+      deletedInvoice: sale.invoiceNumber 
+    });
+
+  } catch (error) {
+    await queryRunner.rollbackTransaction();
+    console.error('❌ Error deleting sale:', error);
+    res.status(400).json({ error: error.message });
+  } finally {
+    await queryRunner.release();
+  }
+};

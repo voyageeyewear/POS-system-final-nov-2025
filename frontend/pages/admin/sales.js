@@ -134,6 +134,34 @@ export default function SalesReports() {
     }
   };
 
+  const handleDeleteSale = async (sale) => {
+    // Confirm before deleting
+    const confirmed = window.confirm(
+      `Are you sure you want to delete invoice ${sale.invoiceNumber}?\n\n` +
+      `This will:\n` +
+      `- Delete the sale record\n` +
+      `- Restore inventory for all items\n` +
+      `- This action cannot be undone!`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      console.log(`🗑️ Deleting sale: ${sale.invoiceNumber}`);
+      const response = await saleAPI.delete(sale.id);
+      toast.success(`Invoice ${sale.invoiceNumber} deleted successfully!`);
+      
+      // Reload data
+      loadData();
+    } catch (error) {
+      console.error('❌ Delete sale error:', error);
+      const errorMsg = error.response?.data?.error || error.message || 'Failed to delete sale';
+      toast.error(errorMsg, { duration: 5000 });
+    }
+  };
+
   const handleEditSale = async (sale) => {
     try {
       console.log('✏️ Opening edit modal for sale:', sale.invoiceNumber);
@@ -473,19 +501,26 @@ export default function SalesReports() {
                   </td>
                   <td className="px-4 py-3 text-sm">
                     <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => downloadInvoice(sale.id, sale.invoiceNumber)}
-                      className="p-1 hover:bg-gray-100 rounded"
-                      title="Download Invoice"
-                    >
-                      <Download className="w-4 h-4 text-primary-600" />
-                    </button>
+                      <button
+                        onClick={() => downloadInvoice(sale.id, sale.invoiceNumber)}
+                        className="p-1 hover:bg-gray-100 rounded"
+                        title="Download Invoice"
+                      >
+                        <Download className="w-4 h-4 text-primary-600" />
+                      </button>
                       <button
                         onClick={() => handleEditSale(sale)}
                         className="p-1 hover:bg-blue-50 rounded"
                         title="Edit Invoice"
                       >
                         <Edit className="w-4 h-4 text-blue-600" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteSale(sale)}
+                        className="p-1 hover:bg-red-50 rounded"
+                        title="Delete Invoice"
+                      >
+                        <Trash className="w-4 h-4 text-red-600" />
                       </button>
                     </div>
                   </td>

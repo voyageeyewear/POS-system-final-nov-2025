@@ -21,5 +21,8 @@ router.get('/:saleId/invoice', saleController.generateInvoice);
 // Update/Edit sale (Admin only)
 router.put('/:saleId', isAdmin, saleController.updateSale);
 
+// Delete sale (Admin only)
+router.delete('/:saleId', isAdmin, saleController.deleteSale);
+
 module.exports = router;
 

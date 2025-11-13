@@ -81,6 +81,7 @@ export const saleAPI = {
     });
   },
   update: (saleId, data) => api.put(`/sales/${saleId}`, data),
+  delete: (saleId) => api.delete(`/sales/${saleId}`),
 };
 
 // Inventory APIs
