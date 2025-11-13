@@ -6,7 +6,7 @@ import ProductCard from '../components/ProductCard';
 import CartItem from '../components/CartItem';
 import CustomerModal from '../components/CustomerModal';
 import { storeAPI, saleAPI, authAPI, productAPI } from '../utils/api';
-import { Search, ShoppingCart, CreditCard, Receipt, RefreshCw, X } from 'lucide-react';
+import { Search, ShoppingCart, CreditCard, Receipt, RefreshCw, X, TrendingUp } from 'lucide-react';
 import toast from 'react-hot-toast';
 import frontendCache from '../utils/cache';
 
@@ -976,6 +976,16 @@ export default function POS() {
         onClose={() => setShowCustomerModal(false)}
         onSubmit={handleCustomerSubmit}
       />
+
+      {/* Floating Dashboard Button */}
+      <button
+        onClick={() => router.push('/cashier-dashboard')}
+        className="fixed bottom-6 right-6 bg-gradient-to-r from-blue-500 to-blue-600 text-white p-4 rounded-full shadow-2xl hover:shadow-3xl transition-all transform hover:scale-110 z-50 flex items-center gap-2"
+        style={{ boxShadow: '0 10px 30px rgba(59, 130, 246, 0.5)' }}
+      >
+        <TrendingUp className="w-6 h-6" />
+        <span className="font-medium pr-1">My Performance</span>
+      </button>
     </Layout>
   );
 }

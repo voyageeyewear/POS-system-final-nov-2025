@@ -12,6 +12,7 @@ router.post('/', saleController.createSale);
 // Get sales (filtered by role and permissions)
 router.get('/', saleController.getAllSales);
 router.get('/stats', saleController.getSalesStats);
+router.get('/cashier/performance', saleController.getCashierPerformance);
 router.get('/:saleId', saleController.getSale);
 
 // Generate invoice

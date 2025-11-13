@@ -542,3 +542,75 @@ exports.updateSale = async (req, res) => {
     await queryRunner.release();
   }
 };
+
+// Get cashier performance
+exports.getCashierPerformance = async (req, res) => {
+  try {
+    const { period = 'today' } = req.query;
+    const cashierId = req.user.id; // Get from authenticated user
+
+    const saleRepo = getSaleRepository();
+    
+    // Calculate date range based on period
+    let startDate = new Date();
+    switch (period) {
+      case 'today':
+        startDate.setHours(0, 0, 0, 0);
+        break;
+      case 'week':
+        startDate.setDate(startDate.getDate() - 7);
+        break;
+      case 'month':
+        startDate.setMonth(startDate.getMonth() - 1);
+        break;
+      case 'all':
+        startDate = new Date('2020-01-01'); // From beginning
+        break;
+      default:
+        startDate.setHours(0, 0, 0, 0);
+    }
+
+    // Get sales for this cashier
+    const sales = await saleRepo.find({
+      where: {
+        cashierId: parseInt(cashierId)
+      },
+      relations: ['items'],
+      order: { saleDate: 'DESC' }
+    });
+
+    // Filter by date
+    const filteredSales = sales.filter(sale => new Date(sale.saleDate) >= startDate);
+
+    // Calculate stats
+    const totalSales = filteredSales.length;
+    const totalRevenue = filteredSales.reduce((sum, sale) => 
+      sum + parseFloat(sale.totalAmount || 0), 0
+    );
+    const totalItems = filteredSales.reduce((sum, sale) => 
+      sum + (sale.items?.length || 0), 0
+    );
+    const averageSale = totalSales > 0 ? totalRevenue / totalSales : 0;
+
+    // Get recent 5 sales
+    const recentSales = filteredSales.slice(0, 5).map(sale => ({
+      invoiceNumber: sale.invoiceNumber,
+      saleDate: sale.saleDate,
+      totalAmount: sale.totalAmount,
+      items: sale.items
+    }));
+
+    res.json({
+      totalSales,
+      totalRevenue: Math.round(totalRevenue * 100) / 100,
+      totalItems,
+      averageSale: Math.round(averageSale * 100) / 100,
+      recentSales,
+      period
+    });
+
+  } catch (error) {
+    console.error('❌ Error fetching cashier performance:', error);
+    res.status(400).json({ error: error.message });
+  }
+};

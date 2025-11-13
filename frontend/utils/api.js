@@ -74,6 +74,7 @@ export const saleAPI = {
   getAll: (params) => api.get('/sales', { params }),
   getOne: (saleId) => api.get(`/sales/${saleId}`),
   getStats: (params) => api.get('/sales/stats', { params }),
+  getCashierPerformance: (period) => api.get('/sales/cashier/performance', { params: { period } }),
   downloadInvoice: (saleId) => {
     return api.get(`/sales/${saleId}/invoice`, {
       responseType: 'blob',
