@@ -216,3 +216,128 @@ exports.getInventorySummary = async (req, res) => {
     res.status(400).json({ error: error.message });
   }
 };
+
+// Check Shopify products for a specific store
+exports.checkShopifyProductsForStore = async (req, res) => {
+  try {
+    const { storeName } = req.query;
+    
+    if (!storeName) {
+      return res.status(400).json({ error: 'Store name is required' });
+    }
+
+    const storeRepo = getStoreRepository();
+    const productRepo = getProductRepository();
+    const inventoryRepo = getInventoryRepository();
+
+    // Find the store (case-insensitive)
+    const allStores = await storeRepo.find();
+    const store = allStores.find(s => 
+      s.name.toLowerCase().includes(storeName.toLowerCase())
+    );
+    
+    if (!store) {
+      return res.status(404).json({ 
+        error: 'Store not found',
+        availableStores: allStores.map(s => ({
+          name: s.name,
+          id: s.id,
+          shopifyLocationId: s.shopifyLocationId
+        }))
+      });
+    }
+
+    if (!store.shopifyLocationId) {
+      return res.status(400).json({ 
+        error: 'Store does not have a Shopify Location ID configured',
+        store: store.name
+      });
+    }
+
+    // Get all products with Shopify variant IDs
+    const products = await productRepo
+      .createQueryBuilder('product')
+      .where('product.shopifyVariantId IS NOT NULL')
+      .andWhere('product.isActive = :isActive', { isActive: true })
+      .getMany();
+
+    // Get inventory item IDs
+    const inventoryItemIds = [];
+    const productMap = new Map();
+
+    for (const product of products) {
+      if (product.shopifyVariantId) {
+        try {
+          const shopifyProduct = await shopifyService.getProduct(product.shopifyProductId);
+          const variant = shopifyProduct.variants.find(v => v.id.toString() === product.shopifyVariantId);
+          
+          if (variant && variant.inventory_item_id) {
+            inventoryItemIds.push(variant.inventory_item_id);
+            productMap.set(variant.inventory_item_id, product);
+          }
+        } catch (error) {
+          console.error(`Error fetching product ${product.name}: ${error.message}`);
+        }
+      }
+    }
+
+    // Get inventory levels from Shopify
+    const inventoryLevels = await shopifyService.getInventoryLevels(inventoryItemIds);
+
+    // Filter for this location
+    const locationInventory = inventoryLevels.filter(level => 
+      level.location_id.toString() === store.shopifyLocationId.toString()
+    );
+
+    const productsWithStock = locationInventory.filter(level => (level.available || 0) > 0);
+    const productsOutOfStock = locationInventory.filter(level => (level.available || 0) === 0);
+    
+    // Calculate totals
+    let totalQuantity = 0;
+    let totalValue = 0;
+    
+    locationInventory.forEach(level => {
+      const quantity = level.available || 0;
+      const product = productMap.get(level.inventory_item_id);
+      if (product) {
+        totalQuantity += quantity;
+        totalValue += quantity * parseFloat(product.price || 0);
+      }
+    });
+
+    // Check database inventory
+    const dbInventory = await inventoryRepo.find({
+      where: { storeId: store.id },
+      relations: ['product']
+    });
+    
+    const dbProductsWithStock = dbInventory.filter(inv => (parseInt(inv.quantity) || 0) > 0);
+
+    res.json({
+      store: {
+        name: store.name,
+        id: store.id,
+        shopifyLocationId: store.shopifyLocationId
+      },
+      shopify: {
+        totalProducts: locationInventory.length,
+        productsWithStock: productsWithStock.length,
+        productsOutOfStock: productsOutOfStock.length,
+        totalQuantity,
+        totalValue: Math.round(totalValue * 100) / 100
+      },
+      database: {
+        totalInventoryRecords: dbInventory.length,
+        productsWithStock: dbProductsWithStock.length
+      },
+      comparison: {
+        shopifyProductsWithStock: productsWithStock.length,
+        databaseProductsWithStock: dbProductsWithStock.length,
+        needsSync: productsWithStock.length !== dbProductsWithStock.length
+      }
+    });
+  } catch (error) {
+    console.error('Error checking Shopify products:', error);
+    res.status(400).json({ error: error.message });
+  }
+};

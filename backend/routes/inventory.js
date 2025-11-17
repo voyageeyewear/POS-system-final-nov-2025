@@ -12,5 +12,8 @@ router.post('/sync/shopify', isAdmin, inventoryController.syncInventoryFromShopi
 // Get inventory summary
 router.get('/summary', inventoryController.getInventorySummary);
 
+// Check Shopify products for a specific store
+router.get('/check-shopify', inventoryController.checkShopifyProductsForStore);
+
 module.exports = router;
 
