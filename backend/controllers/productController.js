@@ -54,11 +54,9 @@ exports.getAllProducts = async (req, res) => {
       .leftJoinAndSelect('inventory.store', 'store')
       .where('product.isActive = :isActive', { isActive: true });
 
-    // Filter by store if specified
-    if (filterStoreId) {
-      queryBuilder.andWhere('inventory.storeId = :storeId', { storeId: filterStoreId });
-      console.log(`🏪 Filtering products by store ID: ${filterStoreId}`);
-    }
+    // 🔥 FIX: Don't filter products by store inventory in WHERE clause
+    // This allows ALL products to show, even if they don't have inventory at that store
+    // We'll filter the inventory array in the transformation instead
 
     if (category) {
       queryBuilder.andWhere('product.category = :category', { category });
@@ -71,14 +69,10 @@ exports.getAllProducts = async (req, res) => {
       );
     }
 
-    // Get total count (need distinct because of inventory joins)
+    // Get total count - don't filter by store inventory
     const totalQuery = productRepo.createQueryBuilder('product')
-      .leftJoin('product.inventory', 'inventory')
       .where('product.isActive = :isActive', { isActive: true });
     
-    if (filterStoreId) {
-      totalQuery.andWhere('inventory.storeId = :storeId', { storeId: filterStoreId });
-    }
     if (category) {
       totalQuery.andWhere('product.category = :category', { category });
     }
@@ -92,19 +86,16 @@ exports.getAllProducts = async (req, res) => {
     const total = await totalQuery.getCount();
     console.log(`📊 Found ${total} products matching filters`);
 
-    // Get paginated products - Sort by inventory quantity (in stock first)
-    const products = await queryBuilder
-      .skip(skip)
-      .take(limitNum)
-      .orderBy('inventory.quantity', 'DESC')
-      .addOrderBy('product.createdAt', 'DESC')
+    // Get ALL products first (without store filtering)
+    const allProducts = await queryBuilder
+      .orderBy('product.createdAt', 'DESC')
       .getMany();
 
-    // Transform products to match frontend expectations
-    const transformedProducts = products.map(product => {
+    // Transform products and filter inventory by store
+    const transformedProducts = allProducts.map(product => {
       let inventoryToShow = product.inventory || [];
       
-      // Filter inventory based on request
+      // Filter inventory based on store (if specified)
       if (filterStoreId) {
         inventoryToShow = inventoryToShow.filter(inv => inv.storeId === filterStoreId);
       }
@@ -116,6 +107,11 @@ exports.getAllProducts = async (req, res) => {
         storeId: parseInt(inv.storeId),
         productId: parseInt(inv.productId)
       }));
+      
+      // Get store-specific quantity for sorting
+      const storeQuantity = filterStoreId 
+        ? (inventoryToShow.find(inv => inv.storeId === filterStoreId)?.quantity || 0)
+        : inventoryToShow.reduce((sum, inv) => sum + inv.quantity, 0);
       
       return {
         _id: product.id,
@@ -131,15 +127,31 @@ exports.getAllProducts = async (req, res) => {
         shopifyVariantId: product.shopifyVariantId,
         isActive: product.isActive,
         inventory: inventoryToShow,
+        quantity: storeQuantity, // Store-specific quantity for sorting/display
         createdAt: product.createdAt,
         updatedAt: product.updatedAt
       };
     });
 
-    console.log(`✅ Returning ${transformedProducts.length} products to ${user?.role || 'user'} (sorted by stock)`);
+    // Sort by store-specific quantity (in stock first), then by creation date
+    transformedProducts.sort((a, b) => {
+      if (b.quantity !== a.quantity) {
+        return b.quantity - a.quantity; // Higher quantity first
+      }
+      return new Date(b.createdAt) - new Date(a.createdAt); // Newer first
+    });
+
+    // Apply pagination after sorting
+    const paginatedProducts = transformedProducts.slice(skip, skip + limitNum);
+
+    console.log(`✅ Returning ${paginatedProducts.length} products to ${user?.role || 'user'} (${total} total, sorted by store stock)`);
+    if (filterStoreId) {
+      const productsWithStock = paginatedProducts.filter(p => p.quantity > 0).length;
+      console.log(`🏪 Store ID ${filterStoreId}: ${productsWithStock} products with stock, ${paginatedProducts.length - productsWithStock} products without stock`);
+    }
 
     res.json({ 
-      products: transformedProducts,
+      products: paginatedProducts,
       pagination: {
         page: pageNum,
         limit: limitNum,

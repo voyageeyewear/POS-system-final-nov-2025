@@ -151,15 +151,21 @@ export default function POS() {
       console.log(`✅ Loaded ${productsData.length} products!`);
       console.log(`📊 Total: ${pagination?.total || productsData.length} products`);
       
-      // 🚀 SIMPLE: Show TOTAL inventory across ALL stores (like admin)
+      // 🔥 FIX: Use store-specific quantity from backend (for cashiers) or sum all stores (for admins)
       const transformedProducts = productsData.map(product => {
-        // Sum up inventory from ALL stores
-        // IMPORTANT: PostgreSQL returns numbers as strings, must parse!
-        const totalQuantity = product.inventory?.reduce((sum, inv) => sum + (parseInt(inv.quantity) || 0), 0) || 0;
+        // Backend now provides store-specific quantity for cashiers
+        // If quantity is already set (store-specific), use it; otherwise sum all stores
+        let quantity = product.quantity;
+        
+        if (quantity === undefined || quantity === null) {
+          // Fallback: Sum up inventory from ALL stores (for admin view)
+          // IMPORTANT: PostgreSQL returns numbers as strings, must parse!
+          quantity = product.inventory?.reduce((sum, inv) => sum + (parseInt(inv.quantity) || 0), 0) || 0;
+        }
         
         return {
           ...product,
-          quantity: totalQuantity
+          quantity: parseInt(quantity) || 0
         };
       });
       
