@@ -29,7 +29,17 @@ a {
   text-decoration: none;
 }
 
-/* Custom scrollbar */
+/* Hide scrollbar but keep scroll functionality */
+.hide-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;  /* Chrome, Safari, Opera */
+}
+
+/* Custom scrollbar (for elements that need visible scrollbar) */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;

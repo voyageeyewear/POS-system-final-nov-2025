@@ -677,7 +677,7 @@ export default function POS() {
               </button>
             </div>
 
-            <div className="flex gap-2 overflow-x-auto pb-2">
+            <div className="flex gap-2 overflow-x-auto pb-2 hide-scrollbar">
               {['all', 'frame', 'eyeglass', 'sunglass', 'accessory'].map((category) => (
                 <button
                   key={category}
@@ -882,7 +882,7 @@ export default function POS() {
         {showCart && (
           <div className="fixed inset-0 bg-black bg-opacity-50 z-50 lg:hidden" onClick={() => setShowCart(false)}>
             <div 
-              className="fixed right-0 top-0 bottom-0 w-full max-w-md bg-white shadow-xl overflow-y-auto"
+              className="fixed right-0 top-0 bottom-0 w-full max-w-md bg-white shadow-xl overflow-y-auto hide-scrollbar"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="p-4 sticky top-0 bg-white border-b z-10">
@@ -900,7 +900,7 @@ export default function POS() {
               <div className="p-4">
 
             {/* Cart Items */}
-            <div className="max-h-[400px] overflow-y-auto mb-4">
+            <div className="max-h-[400px] overflow-y-auto mb-4 hide-scrollbar">
               {cart.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
                   <ShoppingCart className="w-12 h-12 mx-auto mb-2 text-gray-300" />
